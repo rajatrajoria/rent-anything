@@ -1,0 +1,2 @@
+ALTER TABLE user_schema.users
+ADD COLUMN trust_status VARCHAR(255) NOT NULL DEFAULT 'UNTRUSTED';

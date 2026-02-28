@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: rent-anything
+  datasource:
+    url: ${NEONDB_URL}
+    username: ${NEONDB_USERNAME}
+    password: ${NEONDB_PASSWORD}
+  flyway:
+    clean-on-validation-error: true
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+jwt:
+  secret:
+    key: ${JWT_SECRET_KEY}
+  access-token:
+    expiration: 3600000
+  refresh-token:
+    expiration-days: 7
+  email:
+    verification:
+      expiration-minutes: 5
+  password:
+    reset:
+      expiration-minutes: 15
+
+booking:
+  expiration:
+    fixed-rate: 60000
+    timeout-minutes: 10
+  completion:
+    fixed-rate: 60000
+
+app:
+  email:
+    provider: gmail
