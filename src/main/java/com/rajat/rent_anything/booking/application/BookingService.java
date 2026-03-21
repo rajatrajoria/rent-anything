@@ -14,7 +14,6 @@ import com.rajat.rent_anything.item.infrastructure.ItemEntity;
 import com.rajat.rent_anything.item.infrastructure.ItemRepository;
 import com.rajat.rent_anything.booking.exceptions.BookingConflictException;
 import com.rajat.rent_anything.user.application.TrustGateService;
-import com.rajat.rent_anything.user.exceptions.UserTrustGateFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

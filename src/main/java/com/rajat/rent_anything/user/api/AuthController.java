@@ -59,7 +59,7 @@ public class AuthController {
         emailService.sendEmail(
                 email,
                 "Verify your email for rentanything.com",
-                "Click this link to verify your email:\n" + verificationLink);
+                "Click this link to verify your email and start RENTINGGGG...\n" + verificationLink);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(newUserId));
     }
 
