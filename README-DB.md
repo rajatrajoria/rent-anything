@@ -238,6 +238,148 @@ PostGIS integration allows location-based filtering (e.g., nearby items).
 
 ---
 
+## Table-wise Overview (Quick Reference)
+
+This section gives a quick, practical view of what each table is responsible for.
+
+---
+
+### 1. `user_schema.users`
+
+**Purpose:** Core user identity and account management
+
+* Stores login credentials (email, password)
+* Tracks user role (USER / ADMIN)
+* Maintains verification status
+* Tracks trust level (`UNTRUSTED`, etc.)
+
+👉 Used in:
+
+* Authentication
+* Authorization
+* Ownership of items
+* Token relationships
+
+---
+
+### 2. `item_schema.items`
+
+**Purpose:** Represents rentable/listable items
+
+* Owned by a user (`owner_id`)
+* Contains pricing + availability window
+* Supports:
+
+    * 🌍 Geo search (PostGIS location)
+    * 🔍 Full-text search (`search_vector`)
+
+👉 Used in:
+
+* Search APIs (geo + keyword)
+* Booking creation
+
+---
+
+### 3. `booking_schema.bookings`
+
+**Purpose:** Handles reservations between users and items
+
+* Links renter → item
+* Stores booking date range
+* Maintains booking status (PENDING, CONFIRMED, etc.)
+
+🔥 Key Feature:
+
+* Prevents overlapping bookings using DB constraint
+
+👉 Used in:
+
+* Availability checks
+* Booking lifecycle
+
+---
+
+### 4. `token_schema.refresh_tokens`
+
+**Purpose:** Session management (long-lived auth)
+
+* Stores refresh tokens per user
+* Supports token rotation
+* Tracks expiry + revocation
+
+👉 Used in:
+
+* Refresh access token flow
+
+---
+
+### 5. `token_schema.email_verification_tokens`
+
+**Purpose:** Email verification flow
+
+* One-time token per user
+* Used to verify account after signup
+
+👉 Used in:
+
+* Account activation
+
+---
+
+### 6. `token_schema.password_reset_tokens`
+
+**Purpose:** Password reset flow
+
+* Temporary token for resetting password
+* Short-lived and one-time use
+
+👉 Used in:
+
+* Forgot password feature
+
+---
+
+## High-Level Flow Mapping
+
+### 🧑 User Lifecycle
+
+1. User registers → entry in `users`
+2. Email verification token created
+3. User verifies → `is_verified = true`
+
+---
+
+### 🔐 Authentication Flow
+
+1. Login → generate access + refresh token
+2. Store refresh token in `refresh_tokens`
+3. On expiry → rotate refresh token
+
+---
+
+### 📦 Item Lifecycle
+
+1. User creates item → stored in `items`
+2. Item becomes searchable via:
+
+    * location
+    * keyword
+
+---
+
+### 📅 Booking Flow
+
+1. User searches items
+2. Query filters:
+
+    * location
+    * keyword
+    * availability
+3. User books item → insert into `bookings`
+4. DB prevents overlaps automatically
+
+---
+
 ## Final Thoughts
 
 This schema is designed with a strong focus on:
