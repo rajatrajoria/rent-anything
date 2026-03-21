@@ -84,7 +84,7 @@ public class GlobalExceptionHandler {
                 500,
                 "GEN_001",
                 "INTERNAL_SERVER_ERROR",
-                "Something went wrong",
+                "Something went wrong. Please try again",
                 request
         );
     }
@@ -107,10 +107,7 @@ public class GlobalExceptionHandler {
                 .path(request.getRequestURI())
                 .build();
 
-        ApiResponse<Object> response = ApiResponse.builder()
-                .success(false)
-                .error(apiError)
-                .build();
+        ApiResponse<Object> response = ApiResponse.failure(apiError);
 
         return ResponseEntity
                 .status(errorCode.getHttpStatus())
@@ -133,10 +130,7 @@ public class GlobalExceptionHandler {
                 .path(request.getRequestURI())
                 .build();
 
-        ApiResponse<Object> response = ApiResponse.builder()
-                .success(false)
-                .error(apiError)
-                .build();
+        ApiResponse<Object> response = ApiResponse.failure(apiError);
 
         return ResponseEntity.status(status).body(response);
     }
