@@ -33,7 +33,11 @@ public enum ErrorCode {
 
     //Security related
     INVALID_TOKEN("SEC_001", "Invalid authentication token", HttpStatus.UNAUTHORIZED),
-    INVALID_SECURITY_OPERATION("SEC_002", "Invalid security operation", HttpStatus.FORBIDDEN);
+    INVALID_SECURITY_OPERATION("SEC_002", "Invalid security operation", HttpStatus.FORBIDDEN),
+    AUTH_ACCOUNT_NOT_VERIFIED("AUTH_001", "Account not verified", HttpStatus.UNAUTHORIZED),
+    AUTH_INVALID_CREDENTIALS("AUTH_002", "Invalid email or password", HttpStatus.UNAUTHORIZED),
+    AUTH_ACCESS_DENIED("AUTH_003", "Access denied", HttpStatus.FORBIDDEN),
+    AUTH_UNAUTHENTICATED("AUTH_004", "Authentication required", HttpStatus.UNAUTHORIZED);
 
 
     private final String code;

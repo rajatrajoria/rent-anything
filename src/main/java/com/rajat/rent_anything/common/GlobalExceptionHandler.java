@@ -9,10 +9,13 @@ import com.rajat.rent_anything.item.exceptions.ItemException;
 import com.rajat.rent_anything.user.exceptions.UserException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.nio.file.AccessDeniedException;
 import java.time.LocalDateTime;
 
 @RestControllerAdvice
@@ -71,6 +74,51 @@ public class GlobalExceptionHandler {
                 request
         );
     }
+
+    // =========================
+    // AUTHENTICATION (LOGIN)
+    // =========================
+
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDisabledException(
+            DisabledException ex,
+            HttpServletRequest request) {
+
+        return buildErrorResponse(
+                ErrorCode.AUTH_ACCOUNT_NOT_VERIFIED,
+                "Please verify your email before logging in",
+                request
+        );
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Object>> handleBadCredentials(
+            BadCredentialsException ex,
+            HttpServletRequest request) {
+
+        return buildErrorResponse(
+                ErrorCode.AUTH_INVALID_CREDENTIALS,
+                "Invalid email or password",
+                request
+        );
+    }
+
+    // =========================
+    // AUTHORIZATION (403)
+    // =========================
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request) {
+
+        return buildErrorResponse(
+                ErrorCode.AUTH_ACCESS_DENIED,
+                "You do not have permission to perform this action",
+                request
+        );
+    }
+
 
     // =========================
     // GENERIC FALLBACK
