@@ -23,7 +23,7 @@ public class SecurityConfig {
                         )
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("auth/**", "items/seearch").permitAll()
+                        .requestMatchers("auth/**", "items/search").permitAll()
                         .anyRequest().authenticated() // everything else requires authentication
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
