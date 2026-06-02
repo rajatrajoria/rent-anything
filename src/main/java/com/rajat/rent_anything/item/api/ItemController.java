@@ -14,52 +14,218 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * REST controller responsible for item management and discovery.
+ *
+ * Responsibilities:
+ * - Create rental listings
+ * - Activate and deactivate listings
+ * - Update item pricing
+ * - Update item availability
+ * - Search for available items
+ *
+ * Most endpoints require an authenticated user and operate on
+ * items owned by that user. The search endpoint is publicly
+ * accessible and allows users to discover available items
+ * within a specified location and date range.
+ */
 @Slf4j
 @RestController
 @RequestMapping("/items")
 public class ItemController {
 
+    /**
+     * Service responsible for item-related business operations.
+     */
     private final ItemService itemService;
 
     public ItemController(ItemService itemService) {
         this.itemService = itemService;
     }
 
+    /**
+     * Creates a new item listing.
+     *
+     * The authenticated user becomes the owner of the item.
+     *
+     * Workflow:
+     * 1. Extract authenticated user.
+     * 2. Create item listing.
+     * 3. Associate item with owner.
+     * 4. Return generated item id.
+     *
+     * @param command item creation request
+     * @param userDetails authenticated user
+     * @return newly created item id
+     */
     @PostMapping
-    public ResponseEntity<ApiResponse<Long>> createItem(@RequestBody CreateItemCommand command, @AuthenticationPrincipal CustomUserDetails userDetails) {
-        log.info("User {} is creating an item with details: {}", userDetails.getUsername(), command);
+    public ResponseEntity<ApiResponse<Long>> createItem(
+            @RequestBody CreateItemCommand command,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+
+        log.info(
+                "User {} is creating an item with details: {}",
+                userDetails.getUsername(),
+                command
+        );
+
         Long ownerId = userDetails.getDomainUser().getId();
-        Long itemId = itemService.createItem(command, ownerId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(itemId));
+
+        Long itemId = itemService.createItem(
+                command,
+                ownerId
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(itemId));
     }
 
+    /**
+     * Activates an item listing.
+     *
+     * Activated items become available for discovery
+     * and rental operations.
+     *
+     * Only the item owner can perform this action.
+     *
+     * @param id item identifier
+     * @param userDetails authenticated user
+     * @return success response
+     */
     @PutMapping("/{id}/activate")
-    public ResponseEntity<ApiResponse<Void>> activateItem(@PathVariable("id") Long id, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ApiResponse<Void>> activateItem(
+            @PathVariable("id") Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+
         Long userId = userDetails.getDomainUser().getId();
-        itemService.activateItem(id, userId);
+
+        itemService.activateItem(
+                id,
+                userId
+        );
+
         return ResponseEntity.ok(ApiResponse.success());
     }
 
+    /**
+     * Deactivates an item listing.
+     *
+     * Deactivated items are hidden from search results
+     * and cannot participate in new rental requests.
+     *
+     * Only the item owner can perform this action.
+     *
+     * @param id item identifier
+     * @param userDetails authenticated user
+     * @return success response
+     */
     @PutMapping("/{id}/deactivate")
-    public ResponseEntity<ApiResponse<Void>> deactivateItem(@PathVariable("id") Long id, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ApiResponse<Void>> deactivateItem(
+            @PathVariable("id") Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+
         Long userId = userDetails.getDomainUser().getId();
-        itemService.deactivateItem(id, userId);
+
+        itemService.deactivateItem(
+                id,
+                userId
+        );
+
         return ResponseEntity.ok(ApiResponse.success());
     }
 
+    /**
+     * Updates the rental price of an item.
+     *
+     * Only the item owner can modify pricing.
+     *
+     * @param id item identifier
+     * @param price new rental price
+     * @param userDetails authenticated user
+     * @return success response
+     */
     @PutMapping("/{id}/updatePrice")
-    public ResponseEntity<ApiResponse<Void>> price(@PathVariable("id") Long id, @RequestParam("price") Double price, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ApiResponse<Void>> price(
+            @PathVariable("id") Long id,
+            @RequestParam("price") Double price,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+
         Long userId = userDetails.getDomainUser().getId();
-        itemService.updatePrice(id, price, userId);
-        return ResponseEntity.ok(ApiResponse.success());
-    }
-    @PutMapping("/{id}/updateAvailability")
-    public ResponseEntity<ApiResponse<Void>> availability(@PathVariable("id") Long id, @RequestParam("from") LocalDate from, @RequestParam("to") LocalDate to, @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = userDetails.getDomainUser().getId();
-        itemService.updateAvailability(id, from, to, userId);
+
+        itemService.updatePrice(
+                id,
+                price,
+                userId
+        );
+
         return ResponseEntity.ok(ApiResponse.success());
     }
 
+    /**
+     * Updates the availability window of an item.
+     *
+     * Availability determines the date range during which
+     * the item can be rented.
+     *
+     * Only the item owner can modify availability.
+     *
+     * @param id item identifier
+     * @param from availability start date
+     * @param to availability end date
+     * @param userDetails authenticated user
+     * @return success response
+     */
+    @PutMapping("/{id}/updateAvailability")
+    public ResponseEntity<ApiResponse<Void>> availability(
+            @PathVariable("id") Long id,
+            @RequestParam("from") LocalDate from,
+            @RequestParam("to") LocalDate to,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+
+        Long userId = userDetails.getDomainUser().getId();
+
+        itemService.updateAvailability(
+                id,
+                from,
+                to,
+                userId
+        );
+
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    /**
+     * Searches for available items within a specified geographic area.
+     *
+     * Search Criteria:
+     * - Latitude and longitude
+     * - Search radius
+     * - Availability date range
+     * - Optional keyword filter
+     *
+     * Results are returned using pagination controls
+     * through limit and offset parameters.
+     *
+     * Typical Use Cases:
+     * - Find items near a user's location
+     * - Search for specific item types
+     * - Discover available items for desired rental dates
+     *
+     * @param lat search latitude
+     * @param lon search longitude
+     * @param radius search radius in kilometers
+     * @param startDate desired rental start date
+     * @param endDate desired rental end date
+     * @param keyword optional keyword filter
+     * @param limit maximum results to return
+     * @param offset pagination offset
+     * @return matching available items
+     */
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<ItemSearchResponseDto>>> search(
             @RequestParam("lat") double lat,
@@ -71,16 +237,21 @@ public class ItemController {
             @RequestParam(value = "limit", defaultValue = "10") int limit,
             @RequestParam(value = "offset", defaultValue = "0") int offset
     ) {
-        List<ItemSearchResponseDto> result = itemService.searchAvailableItemsWithKeywordAndWithinGivenLocation(
-                lat,
-                lon,
-                radius,
-                startDate,
-                endDate,
-                keyword,
-                limit,
-                offset
+
+        List<ItemSearchResponseDto> result =
+                itemService.searchAvailableItemsWithKeywordAndWithinGivenLocation(
+                        lat,
+                        lon,
+                        radius,
+                        startDate,
+                        endDate,
+                        keyword,
+                        limit,
+                        offset
+                );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(result)
         );
-        return ResponseEntity.ok(ApiResponse.success(result));
     }
 }
