@@ -1,6 +1,5 @@
 package com.rajat.rent_anything.common;
 
-import com.rajat.rent_anything.booking.exceptions.BookingConflictException;
 import com.rajat.rent_anything.booking.exceptions.BookingException;
 import com.rajat.rent_anything.common.enums.ErrorCode;
 import com.rajat.rent_anything.common.model.ApiError;

@@ -1,6 +1,5 @@
 package com.rajat.rent_anything.user.application;
 
-import com.rajat.rent_anything.user.domain.User;
 import com.rajat.rent_anything.user.enums.TrustStatus;
 import com.rajat.rent_anything.user.exceptions.UserInputException;
 import com.rajat.rent_anything.user.exceptions.UserOperationException;

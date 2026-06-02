@@ -1,9 +1,7 @@
 package com.rajat.rent_anything.item.exceptions;
 
 import com.rajat.rent_anything.common.enums.ErrorCode;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 @Getter
 public abstract class ItemException extends RuntimeException {

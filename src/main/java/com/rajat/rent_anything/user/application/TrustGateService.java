@@ -3,11 +3,8 @@ package com.rajat.rent_anything.user.application;
 import com.rajat.rent_anything.common.enums.ErrorCode;
 import com.rajat.rent_anything.user.domain.User;
 import com.rajat.rent_anything.user.enums.TrustStatus;
-import com.rajat.rent_anything.user.exceptions.UserOperationException;
 import com.rajat.rent_anything.user.exceptions.UserTrustGateFailureException;
 import org.springframework.stereotype.Service;
-
-import java.nio.file.AccessDeniedException;
 
 @Service
 public class TrustGateService {
