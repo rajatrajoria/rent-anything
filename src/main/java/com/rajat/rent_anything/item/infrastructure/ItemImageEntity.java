@@ -11,18 +11,12 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 public class ItemImageEntity {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private Long itemId;
-
     private String imageKey;
-
     private Integer displayOrder;
-
     private boolean isThumbnail;
-
     private LocalDateTime createdAt;
 }

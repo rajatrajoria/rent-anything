@@ -28,6 +28,7 @@ public enum ErrorCode {
     INVALID_IMAGE_TYPE("ITM_011", "Unsupported image type", HttpStatus.BAD_REQUEST),
     IMAGE_TOO_LARGE("ITM_012", "Image exceeds maximum allowed size", HttpStatus.BAD_REQUEST),
     ITEM_IMAGE_NOT_FOUND("ITM_013", "Item image not found", HttpStatus.NOT_FOUND),
+
     //===== User =====
     USER_NOT_FOUND("USR_001", "User not found", HttpStatus.NOT_FOUND),
     EMAIL_ALREADY_IN_USE("USR_002", "Email is already in use", HttpStatus.BAD_REQUEST),

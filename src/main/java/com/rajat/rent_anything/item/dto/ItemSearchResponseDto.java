@@ -7,6 +7,7 @@ public record ItemSearchResponseDto(
         String description,
         double pricePerDay,
         double distance,
-        double textScore
+        double textScore,
+        String thumbnailUrl
 )
 {}
