@@ -8,12 +8,13 @@ import org.springframework.context.annotation.Configuration;
 public class MinioConfiguration {
 
     @Bean
-    public MinioClient minioClient(StorageProperties properties) {
+    public MinioClient minioClient() {
+
         return MinioClient.builder()
-                .endpoint(properties.getEndpoint())
+                .endpoint("http://localhost:9000")
                 .credentials(
-                        properties.getAccessKey(),
-                        properties.getSecretKey()
+                        "minioadmin",
+                        "minioadmin"
                 )
                 .build();
     }
