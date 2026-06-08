@@ -187,7 +187,7 @@ public class AuthController {
      * @param token email verification token
      * @return success response
      */
-    @PostMapping("/verify-email")
+    @GetMapping("/verify-email")
     public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam("token") String token) {
         log.info("Email verification attempt with token: {}", token);
         Long userId = emailVerificationService.verifyEmail(token);

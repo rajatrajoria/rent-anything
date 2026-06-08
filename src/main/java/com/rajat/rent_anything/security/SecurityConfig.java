@@ -3,6 +3,7 @@ package com.rajat.rent_anything.security;
 import com.rajat.rent_anything.security.jwt.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -15,7 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * Central Spring Security configuration for the application.
  *
  * <h2>Purpose</h2>
- *
+ * <p>
  * This class defines:
  * <ul>
  *     <li>Authentication strategy</li>
@@ -26,21 +27,21 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * </ul>
  *
  * <h2>Security Architecture</h2>
- *
+ * <p>
  * The application uses:
  * <ul>
  *     <li>JWT-based Authentication</li>
  *     <li>Stateless Security</li>
  *     <li>Role-based Authorization</li>
  * </ul>
- *
+ * <p>
  * Unlike traditional session-based authentication,
  * the server does not maintain login sessions.
- *
+ * <p>
  * Every request must provide a valid JWT token.
  *
  * <h2>High-Level Request Flow</h2>
- *
+ * <p>
  * Client Request
  *      |
  *      v
@@ -59,7 +60,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * Controller
  *
  * <h2>Why Stateless Authentication?</h2>
- *
+ * <p>
  * Benefits:
  * <ul>
  *     <li>No server-side session storage.</li>
@@ -67,7 +68,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *     <li>Works well with REST APIs.</li>
  *     <li>Suitable for mobile and SPA clients.</li>
  * </ul>
- *
+ * <p>
  * Trade-Off:
  * Token revocation becomes more difficult compared
  * to traditional session-based authentication.
@@ -79,10 +80,10 @@ public class SecurityConfig {
      * Defines the application's security filter chain.
      *
      * <h2>What is a Security Filter Chain?</h2>
-     *
+     * <p>
      * Every incoming request passes through a sequence
      * of security-related filters before reaching controllers.
-     *
+     * <p>
      * Typical responsibilities:
      * - Authentication
      * - Authorization
@@ -91,28 +92,25 @@ public class SecurityConfig {
      * - Security context population
      *
      * <h2>Processing Order</h2>
-     *
+     * <p>
      * Incoming Request
-     *      |
-     *      v
+     * |
+     * v
      * JwtAuthenticationFilter
-     *      |
-     *      v
+     * |
+     * v
      * Spring Security Authorization
-     *      |
-     *      v
+     * |
+     * v
      * Controller
      *
-     * @param http Spring Security HTTP configuration builder
+     * @param http                    Spring Security HTTP configuration builder
      * @param jwtAuthenticationFilter JWT authentication filter
      * @return configured security filter chain
      * @throws Exception if configuration fails
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter)
-            throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
 
         http
 
@@ -129,8 +127,7 @@ public class SecurityConfig {
                  *
                  * If cookie-based authentication is introduced in future,
                  * this decision should be revisited.
-                 */
-                .csrf(csrf -> csrf.disable())
+                 */.csrf(csrf -> csrf.disable())
 
                 /**
                  * Session management configuration.
@@ -142,12 +139,7 @@ public class SecurityConfig {
                  * - Every request must authenticate independently.
                  *
                  * This is the recommended approach for JWT-based APIs.
-                 */
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
-                )
+                 */.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 /**
                  * Authorization rules.
@@ -169,34 +161,29 @@ public class SecurityConfig {
                  *
                  * Authorization answers:
                  * "What are you allowed to access?"
-                 */
-                .authorizeHttpRequests(auth -> auth
+                 */.authorizeHttpRequests(auth -> auth
 
-                        /**
-                         * Public endpoints.
-                         *
-                         * Users can access these endpoints
-                         * without providing a JWT token.
-                         *
-                         * Common examples:
-                         * - Login
-                         * - Registration
-                         * - Public search APIs
-                         */
-                        .requestMatchers("auth/**", "items/search")
-                        .permitAll()
+                /**
+                 * Public endpoints.
+                 *
+                 * Users can access these endpoints
+                 * without providing a JWT token.
+                 *
+                 * Common examples:
+                 * - Login
+                 * - Registration
+                 * - Public search APIs
+                 */.requestMatchers("auth/**", "items/search").permitAll()
+                .requestMatchers(HttpMethod.GET, "/items/*").permitAll()
 
-                        /**
-                         * Catch-all security rule.
-                         *
-                         * Any endpoint not explicitly marked
-                         * as public requires authentication.
-                         *
-                         * This follows a secure-by-default approach.
-                         */
-                        .anyRequest()
-                        .authenticated()
-                )
+                /**
+                 * Catch-all security rule.
+                 *
+                 * Any endpoint not explicitly marked
+                 * as public requires authentication.
+                 *
+                 * This follows a secure-by-default approach.
+                 */.anyRequest().authenticated())
 
                 /**
                  * Register JWT filter.
@@ -224,11 +211,7 @@ public class SecurityConfig {
                  *     |
                  *     v
                  * Authorization Checks
-                 */
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                 */.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -237,24 +220,24 @@ public class SecurityConfig {
      * Password encoder used throughout the application.
      *
      * <h2>Why BCrypt?</h2>
-     *
+     * <p>
      * Passwords should NEVER be stored in plain text.
-     *
+     * <p>
      * BCrypt provides:
      * <ul>
      *     <li>Salted hashing</li>
      *     <li>Adaptive work factor</li>
      *     <li>Resistance against rainbow table attacks</li>
      * </ul>
-     *
+     * <p>
      * Example:
-     *
+     * <p>
      * Password:
      * myPassword123
-     *
+     * <p>
      * Stored Value:
      * $2a$10$...
-     *
+     * <p>
      * During login, Spring Security compares the submitted password
      * against the stored hash using this encoder.
      *
@@ -269,32 +252,32 @@ public class SecurityConfig {
      * Exposes Spring Security's AuthenticationManager.
      *
      * <h2>What is AuthenticationManager?</h2>
-     *
+     * <p>
      * AuthenticationManager is the central component responsible
      * for validating login credentials.
-     *
+     * <p>
      * Typical Login Flow:
-     *
+     * <p>
      * Login Request
-     *      |
-     *      v
+     * |
+     * v
      * AuthenticationManager
-     *      |
-     *      v
+     * |
+     * v
      * UserDetailsService
-     *      |
-     *      v
+     * |
+     * v
      * PasswordEncoder
-     *      |
-     *      v
+     * |
+     * v
      * Authentication Result
-     *
+     * <p>
      * Common Usage:
-     *
+     * <p>
      * During login endpoints:
-     *
+     * <p>
      * authenticationManager.authenticate(...)
-     *
+     * <p>
      * If authentication succeeds,
      * a JWT token is usually generated and returned.
      *
@@ -303,9 +286,7 @@ public class SecurityConfig {
      * @throws Exception if manager creation fails
      */
     @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration config)
-            throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
 
         return config.getAuthenticationManager();
     }

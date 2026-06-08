@@ -31,7 +31,7 @@ public class ItemImageController {
      * - First uploaded image becomes thumbnail.
      */
     @PostMapping("/{itemId}/images")
-    public ResponseEntity<ApiResponse<List<ItemImageResponseDto>>> uploadImages(@PathVariable Long itemId, @RequestParam("files") List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+    public ResponseEntity<ApiResponse<List<ItemImageResponseDto>>> uploadImages(@PathVariable("itemId") Long itemId, @RequestParam("files") List<MultipartFile> files, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
         Long userId = customUserDetails.getDomainUser().getId();
         log.info("User {} uploading {} image(s) for item {}", userId, files.size(), itemId);
         List<ItemImageResponseDto> uploadedImages = itemImageService.uploadImages(itemId, userId, files);
@@ -42,7 +42,7 @@ public class ItemImageController {
      * Returns all images belonging to an item.
      */
     @GetMapping("/{itemId}/images")
-    public ResponseEntity<ApiResponse<List<ItemImageResponseDto>>> getItemImages(@PathVariable Long itemId) {
+    public ResponseEntity<ApiResponse<List<ItemImageResponseDto>>> getItemImages(@PathVariable("itemId") Long itemId) {
         List<ItemImageResponseDto> images = itemImageService.getItemImages(itemId);
         return ResponseEntity.ok(ApiResponse.success(images));
     }
@@ -51,7 +51,7 @@ public class ItemImageController {
      * Returns thumbnail image for an item.
      */
     @GetMapping("/{itemId}/thumbnail")
-    public ResponseEntity<ApiResponse<ItemImageResponseDto>> getThumbnail(@PathVariable Long itemId) {
+    public ResponseEntity<ApiResponse<ItemImageResponseDto>> getThumbnail(@PathVariable("itemId") Long itemId) {
         ItemImageResponseDto thumbnail = itemImageService.getThumbnail(itemId);
         return ResponseEntity.ok(ApiResponse.success(thumbnail));
     }
@@ -62,7 +62,7 @@ public class ItemImageController {
      * Only the item owner can delete images.
      */
     @DeleteMapping("/images/{imageId}")
-    public ResponseEntity<ApiResponse<Void>> deleteImage(@PathVariable Long imageId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ApiResponse<Void>> deleteImage(@PathVariable("itemId") Long imageId, @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = userDetails.getDomainUser().getId();
         log.info("User {} deleting image {}", userId, imageId);
         itemImageService.deleteImage(imageId, userId);

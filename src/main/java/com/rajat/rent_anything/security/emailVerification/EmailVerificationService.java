@@ -15,7 +15,7 @@ import java.util.UUID;
  * Handles email verification token lifecycle management.
  *
  * <h2>Purpose</h2>
- *
+ * <p>
  * This service is responsible for:
  * <ul>
  *     <li>Generating email verification tokens.</li>
@@ -25,7 +25,7 @@ import java.util.UUID;
  * </ul>
  *
  * <h2>Why Email Verification?</h2>
- *
+ * <p>
  * Email verification ensures that:
  * <ul>
  *     <li>The user owns the email address they registered with.</li>
@@ -35,7 +35,7 @@ import java.util.UUID;
  * </ul>
  *
  * <h2>Verification Flow</h2>
- *
+ * <p>
  * User Registration
  *       |
  *       v
@@ -60,7 +60,7 @@ import java.util.UUID;
  * Delete Token
  *
  * <h2>Why Store Tokens in Database?</h2>
- *
+ * <p>
  * Unlike authentication JWTs, email verification tokens are persisted
  * in the database because:
  *
@@ -72,11 +72,11 @@ import java.util.UUID;
  * </ul>
  *
  * <h2>Token Lifecycle</h2>
- *
+ * <p>
  * Generated -> Active -> Verified/Expired -> Deleted
  *
  * <h2>Security Considerations</h2>
- *
+ * <p>
  * Verification tokens:
  * <ul>
  *     <li>Are random and difficult to guess.</li>
@@ -92,19 +92,19 @@ public class EmailVerificationService {
     /**
      * Repository responsible for storing and retrieving
      * email verification tokens.
-     *
+     * <p>
      * Acts as the persistence layer for verification workflows.
      */
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
 
     /**
      * Token validity duration in minutes.
-     *
+     * <p>
      * Configurable through application properties.
-     *
+     * <p>
      * Example:
      * 60 = token expires one hour after creation.
-     *
+     * <p>
      * Why expire tokens?
      * - Limits attack window.
      * - Prevents indefinitely valid links.
@@ -125,7 +125,7 @@ public class EmailVerificationService {
      * Creates a new email verification token for a user.
      *
      * <h2>Workflow</h2>
-     *
+     * <p>
      * 1. Generate a cryptographically random token.
      * 2. Associate token with user.
      * 3. Set creation and expiration timestamps.
@@ -133,7 +133,7 @@ public class EmailVerificationService {
      * 5. Return token for email delivery.
      *
      * <h2>Why UUID?</h2>
-     *
+     * <p>
      * UUIDs provide:
      * <ul>
      *     <li>High uniqueness guarantees.</li>
@@ -141,15 +141,15 @@ public class EmailVerificationService {
      *     <li>Low collision probability.</li>
      *     <li>No dependency on user identifiers.</li>
      * </ul>
-     *
+     * <p>
      * Example Token:
      * 550e8400-e29b-41d4-a716-446655440000
      *
      * <h2>Transactional Behavior</h2>
-     *
+     * <p>
      * The entire token creation process is executed
      * within a database transaction.
-     *
+     * <p>
      * This guarantees that either:
      * - The token is fully persisted, or
      * - No partial changes occur.
@@ -188,10 +188,10 @@ public class EmailVerificationService {
      * Generates a replacement verification token.
      *
      * <h2>Business Rule</h2>
-     *
+     * <p>
      * Users cannot continuously request new verification tokens
      * while a previously issued token is still valid.
-     *
+     * <p>
      * Why?
      *
      * <ul>
@@ -202,7 +202,7 @@ public class EmailVerificationService {
      * </ul>
      *
      * <h2>Workflow</h2>
-     *
+     * <p>
      * 1. Retrieve existing token.
      * 2. Verify token has expired.
      * 3. Remove old token.
@@ -211,12 +211,8 @@ public class EmailVerificationService {
      *
      * @param userId target user
      * @return newly generated verification token
-     *
-     * @throws InvalidTokenException
-     * when no verification token exists
-     *
-     * @throws InvalidSecurityOperation
-     * when current token is still active
+     * @throws InvalidTokenException    when no verification token exists
+     * @throws InvalidSecurityOperation when current token is still active
      */
     @Transactional
     public String resendEmailVerificationToken(Long userId) {
@@ -254,7 +250,7 @@ public class EmailVerificationService {
      * Verifies a user's email using a verification token.
      *
      * <h2>Verification Workflow</h2>
-     *
+     * <p>
      * 1. Locate token.
      * 2. Verify token exists.
      * 3. Verify token has not expired.
@@ -263,10 +259,10 @@ public class EmailVerificationService {
      * 6. Return user ID.
      *
      * <h2>Why Delete After Verification?</h2>
-     *
+     * <p>
      * Email verification links are intended to be
      * one-time-use credentials.
-     *
+     * <p>
      * Deleting the token:
      * <ul>
      *     <li>Prevents replay attacks.</li>
@@ -275,9 +271,9 @@ public class EmailVerificationService {
      * </ul>
      *
      * <h2>Token Expiration Check</h2>
-     *
+     * <p>
      * Expired tokens are rejected immediately.
-     *
+     * <p>
      * This prevents:
      * <ul>
      *     <li>Old leaked links from being used.</li>
@@ -287,9 +283,7 @@ public class EmailVerificationService {
      *
      * @param token verification token received from email link
      * @return verified user's ID
-     *
-     * @throws InvalidTokenException
-     * when token is missing, invalid, or expired
+     * @throws InvalidTokenException when token is missing, invalid, or expired
      */
     @Transactional
     public Long verifyEmail(String token) {

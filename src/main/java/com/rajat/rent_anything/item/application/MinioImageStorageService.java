@@ -1,9 +1,11 @@
 package com.rajat.rent_anything.item.application;
 
 import com.rajat.rent_anything.item.exceptions.ImageStorageException;
+import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import io.minio.http.Method;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -64,8 +66,19 @@ public class MinioImageStorageService implements ImageStorageService {
     }
 
     @Override
-    public String getPublicUrl(String imageKey) {
-
-        return MINIO_ENDPOINT + "/" + BUCKET_NAME + "/" + imageKey;
+    public String getImageUrl(String imageKey) {
+        try {
+            return minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.GET)
+                            .bucket(BUCKET_NAME)
+                            .object(imageKey)
+                            .expiry(60 * 60)
+                            .build()
+            );
+        } catch (Exception ex) {
+            log.error("Failed to generate URL for image {}", imageKey, ex);
+            throw new ImageStorageException("Failed to generate image URL");
+        }
     }
 }

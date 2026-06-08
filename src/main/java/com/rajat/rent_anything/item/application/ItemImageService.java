@@ -162,6 +162,6 @@ public class ItemImageService {
     }
 
     private ItemImageResponseDto toResponseDto(ItemImageEntity entity) {
-        return new ItemImageResponseDto(entity.getId(), imageStorageService.getPublicUrl(entity.getImageKey()), entity.isThumbnail(), entity.getDisplayOrder());
+        return new ItemImageResponseDto(entity.getId(), imageStorageService.getImageUrl(entity.getImageKey()), entity.isThumbnail(), entity.getDisplayOrder());
     }
 }

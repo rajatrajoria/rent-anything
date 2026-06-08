@@ -40,5 +40,5 @@ public interface ImageStorageService {
      * @param imageKey storage key
      * @return public URL
      */
-    String getPublicUrl(String imageKey);
+    String getImageUrl(String imageKey);
 }
