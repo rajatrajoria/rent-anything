@@ -5,6 +5,7 @@ import com.rajat.rent_anything.booking.domain.BookingStatus;
 import com.rajat.rent_anything.booking.infrastructure.BookingEntity;
 import com.rajat.rent_anything.booking.infrastructure.BookingMapper;
 import com.rajat.rent_anything.booking.infrastructure.BookingRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
+@Slf4j
 @Component
 public class BookingCompletionScheduler {
     private final BookingRepository bookingRepository;
@@ -34,7 +36,8 @@ public class BookingCompletionScheduler {
             try {
                 booking.complete();
                 bookingRepository.save(BookingMapper.toEntity(booking));
-            } catch (Exception ignored) {
+            } catch (Exception ex) {
+                log.warn("Failed to complete booking {}", entity.getId(), ex);
             }
         }
     }

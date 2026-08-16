@@ -15,5 +15,7 @@ public interface ItemImageRepository  extends JpaRepository<ItemImageEntity, Lon
 
     Optional<ItemImageEntity> findByItemIdAndIsThumbnailTrue(Long itemId);
 
+    List<ItemImageEntity> findByItemIdInAndIsThumbnailTrue(List<Long> itemIds);
+
     void deleteByItemId(Long itemId);
 }

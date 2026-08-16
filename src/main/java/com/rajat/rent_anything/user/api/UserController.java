@@ -130,9 +130,8 @@ public class UserController {
         Long userId = userDetail.getDomainUser().getId();
 
         log.info(
-                "Logout attempt for userId: {}, refreshToken: {}",
-                userId,
-                refreshToken);
+                "Logout attempt for userId: {}",
+                userId);
 
         refreshTokenService.revokeRefreshToken(
                 refreshToken,

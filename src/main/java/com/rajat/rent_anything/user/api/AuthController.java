@@ -10,6 +10,7 @@ import com.rajat.rent_anything.security.refreshTokens.RefreshTokenEntity;
 import com.rajat.rent_anything.security.refreshTokens.RefreshTokenService;
 import com.rajat.rent_anything.user.application.UserService;
 import com.rajat.rent_anything.user.domain.User;
+import com.rajat.rent_anything.user.exceptions.UserOperationException;
 import com.rajat.rent_anything.user.records.request.LoginRequest;
 import com.rajat.rent_anything.user.records.response.AuthResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -142,7 +143,6 @@ public class AuthController {
         log.info("Login successful for user: {}", authentication.getName());
 
         CustomUserDetails authenticatedUserDetails = (CustomUserDetails) authentication.getPrincipal();
-        log.info("Authenticated user details: {}", authenticatedUserDetails.getDomainUser());
 
         String accessToken = jwtService.generateAccessToken(
                 authenticatedUserDetails.getUsername(),
@@ -150,8 +150,6 @@ public class AuthController {
         RefreshTokenEntity refreshToken = refreshTokenService
                 .createRefreshToken(authenticatedUserDetails.getDomainUser().getId());
 
-        // TODO: Delete this log after testing
-        log.info("Generated access token: {}, refresh token: {}", accessToken, refreshToken.getToken());
         return ResponseEntity.ok(ApiResponse.success(new AuthResponse(accessToken, refreshToken.getToken())));
     }
 
@@ -167,14 +165,13 @@ public class AuthController {
      */
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@RequestParam("refreshToken") String refreshToken) {
-        log.info("Refresh token attempt with token: {}", refreshToken);
         RefreshTokenEntity validRefreshToken = refreshTokenService
                 .verifyAndRotateRefreshTokenIfFoundValid(refreshToken);
         User user = userService.getUserById(validRefreshToken.getUserId());
         String newAccessToken = jwtService.generateAccessToken(
                 user.getEmail(),
                 "ROLE_" + user.getRole().name());
-        log.info("Refresh token successful for userId: {}, new access token: {}", user.getId(), newAccessToken);
+        log.info("Refresh token successful for userId: {}", user.getId());
         return ResponseEntity.ok(ApiResponse.success(new AuthResponse(newAccessToken, validRefreshToken.getToken())));
     }
 
@@ -189,7 +186,6 @@ public class AuthController {
      */
     @GetMapping("/verify-email")
     public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam("token") String token) {
-        log.info("Email verification attempt with token: {}", token);
         Long userId = emailVerificationService.verifyEmail(token);
         userService.markUserAsEmailVerified(userId);
         log.info("Email verification successful for userId: {}", userId);
@@ -207,17 +203,21 @@ public class AuthController {
      */
     @PostMapping("/resend-verification-email")
     public ResponseEntity<ApiResponse<Void>> resendVerificationEmail(@RequestParam("email") String email) {
-        User user = userService.findByEmail(email);
-        if (user.isVerified()) {
-            throw new IllegalArgumentException("Email is already verified");
+        try {
+            User user = userService.findByEmail(email);
+            if (!user.isVerified()) {
+                String newVerificationToken = emailVerificationService.resendEmailVerificationToken(user.getId());
+                String verificationLink = "http://localhost:8080/auth/verify-email?token=" + newVerificationToken;
+                emailService.sendEmail(
+                        email,
+                        "Verify your email for rentanything.com",
+                        "Click this link to verify your email:\n" + verificationLink);
+                log.info("Resent email verification token and email sent for user with email: {}", email);
+            }
+        } catch (UserOperationException ex) {
+            // Do not reveal whether the email is registered.
+            log.info("Verification resend requested for unregistered email");
         }
-        String newVerificationToken = emailVerificationService.resendEmailVerificationToken(user.getId());
-        String verificationLink = "http://localhost:8080/auth/verify-email?token=" + newVerificationToken;
-        emailService.sendEmail(
-                email,
-                "Verify your email for rentanything.com",
-                "Click this link to verify your email:\n" + verificationLink);
-        log.info("Resent email verification token and email sent for user with email: {}", email);
         return ResponseEntity.ok(ApiResponse.success());
     }
 
@@ -232,14 +232,19 @@ public class AuthController {
      */
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestParam("email") String email) {
-        User user = userService.findByEmail(email);
-        String passwordResetToken = passwordResetService.createPasswordResetToken(user.getId());
-        String resetPasswordLink = "http://localhost:8080/auth/reset-password?token=" + passwordResetToken;
-        emailService.sendEmail(
-                email,
-                "Reset your password for rentanything.com",
-                "Click this link to reset your password:\n" + resetPasswordLink);
-        log.info("Password reset token generated and email sent for user with email: {}", email);
+        try {
+            User user = userService.findByEmail(email);
+            String passwordResetToken = passwordResetService.createPasswordResetToken(user.getId());
+            String resetPasswordLink = "http://localhost:8080/auth/reset-password?token=" + passwordResetToken;
+            emailService.sendEmail(
+                    email,
+                    "Reset your password for rentanything.com",
+                    "Click this link to reset your password:\n" + resetPasswordLink);
+            log.info("Password reset token generated and email sent for user with email: {}", email);
+        } catch (UserOperationException ex) {
+            // Do not reveal whether the email is registered.
+            log.info("Password reset requested for unregistered email");
+        }
         return ResponseEntity.ok(ApiResponse.success());
     }
 
@@ -257,7 +262,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> resetPassword(@RequestParam("token") String token,
             @RequestParam("newPassword") String newPassword) {
         passwordResetService.verifyPasswordResetTokenAndResetPassword(token, newPassword);
-        log.info("Password reset successful for token: {}", token);
+        log.info("Password reset successful");
         return ResponseEntity.ok(ApiResponse.success());
     }
 }

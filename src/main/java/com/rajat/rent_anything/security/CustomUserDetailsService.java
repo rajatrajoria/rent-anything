@@ -1,6 +1,8 @@
 package com.rajat.rent_anything.security;
 
 import com.rajat.rent_anything.user.application.UserService;
+import com.rajat.rent_anything.user.domain.User;
+import com.rajat.rent_anything.user.exceptions.UserOperationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -159,11 +161,22 @@ public class CustomUserDetailsService implements UserDetailsService {
         /**
          * Retrieve user from application layer.
          *
-         * Expected behavior:
-         * UserService should throw an exception when no user
-         * exists for the supplied email.
+         * UserService throws UserOperationException when no user
+         * exists for the supplied email. That is translated here
+         * into UsernameNotFoundException so that:
+         *  - Spring Security's DaoAuthenticationProvider masks it
+         *    behind the same generic "bad credentials" response used
+         *    for a wrong password, preventing user enumeration via
+         *    the login endpoint.
+         *  - Callers of this method (e.g. JwtAuthenticationFilter)
+         *    can rely on the UserDetailsService contract.
          */
-        var user = userService.findByEmail(email);
+        User user;
+        try {
+            user = userService.findByEmail(email);
+        } catch (UserOperationException ex) {
+            throw new UsernameNotFoundException("User not found with email: " + email, ex);
+        }
 
         /**
          * Convert domain user into a Spring Security compatible object.

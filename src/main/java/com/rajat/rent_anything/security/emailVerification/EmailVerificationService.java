@@ -288,8 +288,6 @@ public class EmailVerificationService {
     @Transactional
     public Long verifyEmail(String token) {
 
-        log.info("Attempting to verify email with token: {}", token);
-
         EmailVerificationTokenEntity entity =
                 emailVerificationTokenRepository.findByToken(token)
                         .orElseThrow(() ->

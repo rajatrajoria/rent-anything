@@ -6,6 +6,7 @@ import com.rajat.rent_anything.item.application.commands.CreateItemCommand;
 import com.rajat.rent_anything.item.dto.ItemDetailsResponseDto;
 import com.rajat.rent_anything.item.dto.ItemSearchResponseDto;
 import com.rajat.rent_anything.security.CustomUserDetails;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,7 +61,7 @@ public class ItemController {
      * @return newly created item id
      */
     @PostMapping
-    public ResponseEntity<ApiResponse<Long>> createItem(@RequestBody CreateItemCommand command, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ApiResponse<Long>> createItem(@Valid @RequestBody CreateItemCommand command, @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         log.info("User {} is creating an item with details: {}", userDetails.getUsername(), command);
 

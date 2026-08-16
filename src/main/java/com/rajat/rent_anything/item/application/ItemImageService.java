@@ -14,6 +14,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -106,6 +108,20 @@ public class ItemImageService {
     @Transactional
     public ItemImageResponseDto getThumbnail(Long itemId) {
         return itemImageRepository.findByItemIdAndIsThumbnailTrue(itemId).map(this::toResponseDto).orElse(null);
+    }
+
+    /**
+     * Retrieves thumbnails for multiple items in a single query.
+     * <p>
+     * Used by search results to avoid one thumbnail lookup per item.
+     */
+    @Transactional
+    public Map<Long, ItemImageResponseDto> getThumbnailsByItemIds(List<Long> itemIds) {
+        if (itemIds.isEmpty()) {
+            return Map.of();
+        }
+        return itemImageRepository.findByItemIdInAndIsThumbnailTrue(itemIds).stream()
+                .collect(Collectors.toMap(ItemImageEntity::getItemId, this::toResponseDto));
     }
 
     /**

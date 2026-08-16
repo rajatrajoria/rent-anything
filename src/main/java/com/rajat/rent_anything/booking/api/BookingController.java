@@ -92,17 +92,22 @@ public class BookingController {
      * A confirmed booking represents an accepted rental
      * agreement between the renter and item owner.
      *
-     * Business validation is handled by BookingService.
+     * Only the item owner may confirm a booking; business
+     * validation is handled by BookingService.
      *
-     * @param id booking identifier
+     * @param id          booking identifier
+     * @param userDetails authenticated user
      * @return success response
      */
     @PostMapping("/{id}/confirm")
     public ResponseEntity<ApiResponse<Void>> confirmBooking(
-            @PathVariable Long id
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
 
-        bookingService.confirmBooking(id);
+        Long userId = userDetails.getDomainUser().getId();
+
+        bookingService.confirmBooking(id, userId);
 
         return ResponseEntity.ok(ApiResponse.success());
     }
@@ -113,17 +118,22 @@ public class BookingController {
      * Once cancelled, the booking is no longer considered
      * active and should not block item availability.
      *
-     * Business validation is handled by BookingService.
+     * Only the renter or the item owner may cancel a booking;
+     * business validation is handled by BookingService.
      *
-     * @param id booking identifier
+     * @param id          booking identifier
+     * @param userDetails authenticated user
      * @return success response
      */
     @PostMapping("/{id}/cancel")
     public ResponseEntity<ApiResponse<Void>> cancelBooking(
-            @PathVariable Long id
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
 
-        bookingService.cancelBooking(id);
+        Long userId = userDetails.getDomainUser().getId();
+
+        bookingService.cancelBooking(id, userId);
 
         return ResponseEntity.ok(ApiResponse.success());
     }

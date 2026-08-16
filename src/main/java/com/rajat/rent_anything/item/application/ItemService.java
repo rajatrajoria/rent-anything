@@ -16,6 +16,7 @@ import com.rajat.rent_anything.item.exceptions.ItemNotFoundException;
 import com.rajat.rent_anything.item.infrastructure.ItemEntity;
 import com.rajat.rent_anything.item.infrastructure.ItemMapper;
 import com.rajat.rent_anything.item.infrastructure.ItemRepository;
+import com.rajat.rent_anything.item.infrastructure.ItemSearchRow;
 import com.rajat.rent_anything.user.application.TrustGateService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service responsible for item lifecycle management and item discovery.
@@ -239,12 +241,14 @@ public class ItemService {
     @Transactional(readOnly = true)
     public List<ItemSearchResponseDto> searchAvailableItemsWithKeywordAndWithinGivenLocation(double latitude, double longitude, double radiusKm, LocalDate startDate, LocalDate endDate, String keyword, int limit, int offset) {
         double radiusMeters = radiusKm * 1000;
-        return itemRepository.searchAvailableItemsWithinRadiusAndWithKeywords(latitude, longitude, radiusMeters, startDate, endDate, keyword, limit, offset).stream().map(row -> {
-            String thumbnailUrl = null;
-            var thumbnail = itemImageService.getThumbnail(row.getItemId());
-            if (thumbnail != null) {
-                thumbnailUrl = thumbnail.imageUrl();
-            }
+        List<ItemSearchRow> rows = itemRepository.searchAvailableItemsWithinRadiusAndWithKeywords(latitude, longitude, radiusMeters, startDate, endDate, keyword, limit, offset);
+
+        List<Long> itemIds = rows.stream().map(ItemSearchRow::getItemId).toList();
+        Map<Long, ItemImageResponseDto> thumbnailsByItemId = itemImageService.getThumbnailsByItemIds(itemIds);
+
+        return rows.stream().map(row -> {
+            ItemImageResponseDto thumbnail = thumbnailsByItemId.get(row.getItemId());
+            String thumbnailUrl = thumbnail != null ? thumbnail.imageUrl() : null;
             return new ItemSearchResponseDto(row.getItemId(), row.getOwnerId(), row.getTitle(), row.getDescription(), row.getPricePerDay(), row.getDistance() / 1000, row.getTextScore(), thumbnailUrl);
         }).toList();
     }

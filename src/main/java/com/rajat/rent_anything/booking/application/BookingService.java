@@ -3,6 +3,7 @@ package com.rajat.rent_anything.booking.application;
 import com.rajat.rent_anything.booking.application.commands.CreateBookingCommand;
 import com.rajat.rent_anything.booking.domain.Booking;
 import com.rajat.rent_anything.booking.domain.BookingStatus;
+import com.rajat.rent_anything.booking.exceptions.BookingAccessDeniedException;
 import com.rajat.rent_anything.booking.exceptions.InvalidBookingDatesException;
 import com.rajat.rent_anything.booking.exceptions.NoSuchBookingException;
 import com.rajat.rent_anything.booking.infrastructure.BookingEntity;
@@ -126,8 +127,8 @@ public class BookingService {
                                 BookingStatus.PENDING,
                                 BookingStatus.CONFIRMED
                         ),
-                        command.endDate(),
-                        command.startDate()
+                        command.startDate(),
+                        command.endDate()
                 );
 
         if (!conflictEntities.isEmpty()) {
@@ -173,20 +174,35 @@ public class BookingService {
      * A confirmed booking represents an accepted rental
      * agreement between the renter and item owner.
      *
+     * Only the item owner may accept a booking request.
+     *
      * State Transition:
      *
      * PENDING -> CONFIRMED
      *
      * @param bookingId booking identifier
-     * @throws NoSuchBookingException when the booking does not exist
+     * @param userId    user requesting the confirmation
+     * @throws NoSuchBookingException      when the booking does not exist
+     * @throws BookingAccessDeniedException when the caller does not own the item
      */
     @Transactional
-    public void confirmBooking(Long bookingId) {
+    public void confirmBooking(Long bookingId, Long userId) {
 
         BookingEntity entity = bookingRepository.findById(bookingId)
                 .orElseThrow(() ->
                         new NoSuchBookingException("Booking not found")
                 );
+
+        ItemEntity item = itemRepository.findById(entity.getItemId())
+                .orElseThrow(() ->
+                        new ItemNotFoundException("Item not found")
+                );
+
+        if (!item.getOwnerId().equals(userId)) {
+            throw new BookingAccessDeniedException(
+                    "Only the item owner can confirm this booking"
+            );
+        }
 
         Booking booking = BookingMapper.toDomain(entity);
 
@@ -200,6 +216,9 @@ public class BookingService {
     /**
      * Cancels a booking.
      *
+     * Either the renter who made the booking or the item owner
+     * may cancel it.
+     *
      * State Transition:
      *
      * PENDING   -> CANCELLED
@@ -209,15 +228,31 @@ public class BookingService {
      * block item availability.
      *
      * @param bookingId booking identifier
-     * @throws NoSuchBookingException when the booking does not exist
+     * @param userId    user requesting the cancellation
+     * @throws NoSuchBookingException      when the booking does not exist
+     * @throws BookingAccessDeniedException when the caller is neither the renter nor the item owner
      */
     @Transactional
-    public void cancelBooking(Long bookingId) {
+    public void cancelBooking(Long bookingId, Long userId) {
 
         BookingEntity entity = bookingRepository.findById(bookingId)
                 .orElseThrow(() ->
                         new NoSuchBookingException("Booking not found")
                 );
+
+        ItemEntity item = itemRepository.findById(entity.getItemId())
+                .orElseThrow(() ->
+                        new ItemNotFoundException("Item not found")
+                );
+
+        boolean isRenter = entity.getRenterId().equals(userId);
+        boolean isOwner = item.getOwnerId().equals(userId);
+
+        if (!isRenter && !isOwner) {
+            throw new BookingAccessDeniedException(
+                    "Only the renter or the item owner can cancel this booking"
+            );
+        }
 
         Booking booking = BookingMapper.toDomain(entity);
 

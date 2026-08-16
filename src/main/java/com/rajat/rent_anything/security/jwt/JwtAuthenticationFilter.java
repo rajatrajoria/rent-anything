@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -211,7 +212,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String email = jwtService.extractEmail(token);
         String role = jwtService.extractRole(token);
 
-        log.info("Extracted email from token: {}, role: {}", email, role);
+        log.debug("Authenticated request for email: {}, role: {}", email, role);
 
         /**
          * Load user from database.
@@ -224,9 +225,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
          * - Account status changed
          *
          * Database remains the source of truth.
+         *
+         * If the user behind a still-valid token no longer exists
+         * (e.g. deleted after the token was issued), treat the
+         * request as unauthenticated instead of failing the request.
          */
-        CustomUserDetails userDetails =
-                (CustomUserDetails) userDetailsService.loadUserByUsername(email);
+        CustomUserDetails userDetails;
+        try {
+            userDetails = (CustomUserDetails) userDetailsService.loadUserByUsername(email);
+        } catch (UsernameNotFoundException ex) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         /**
          * Create Spring Security Authentication object.

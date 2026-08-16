@@ -62,7 +62,7 @@ public class ItemImageController {
      * Only the item owner can delete images.
      */
     @DeleteMapping("/images/{imageId}")
-    public ResponseEntity<ApiResponse<Void>> deleteImage(@PathVariable("itemId") Long imageId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ApiResponse<Void>> deleteImage(@PathVariable("imageId") Long imageId, @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = userDetails.getDomainUser().getId();
         log.info("User {} deleting image {}", userId, imageId);
         itemImageService.deleteImage(imageId, userId);

@@ -71,7 +71,7 @@ public class Item {
         item.setTitle(title);
         item.setDescription(description);
         item.setPricePerDay(pricePerDay);
-        item.status = ItemStatus.ACTIVE;
+        item.status = ItemStatus.INACTIVE;
         item.createdAt = LocalDateTime.now();
         item.updatedAt = LocalDateTime.now();
         item.setDepositAmount(depositAmount);

@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -17,7 +18,12 @@ import java.util.UUID;
 public class MinioImageStorageService implements ImageStorageService {
 
     private static final String BUCKET_NAME = "rent-anything";
-    private static final String MINIO_ENDPOINT = "http://localhost:9000";
+
+    private static final Map<String, String> EXTENSIONS_BY_CONTENT_TYPE = Map.of(
+            "image/jpeg", ".jpg",
+            "image/png", ".png",
+            "image/webp", ".webp"
+    );
 
     private final MinioClient minioClient;
 
@@ -30,9 +36,9 @@ public class MinioImageStorageService implements ImageStorageService {
 
         try {
 
-            String originalFilename = file.getOriginalFilename();
+            String extension = EXTENSIONS_BY_CONTENT_TYPE.getOrDefault(file.getContentType(), "");
 
-            String imageKey = "items/" + itemId + "/" + UUID.randomUUID() + "-" + originalFilename;
+            String imageKey = "items/" + itemId + "/" + UUID.randomUUID() + extension;
 
             minioClient.putObject(PutObjectArgs.builder().bucket(BUCKET_NAME).object(imageKey).stream(file.getInputStream(), file.getSize(), -1).contentType(file.getContentType()).build());
 

@@ -14,6 +14,7 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.nio.file.AccessDeniedException;
 import java.time.LocalDateTime;
@@ -72,6 +73,23 @@ public class GlobalExceptionHandler {
                 "VAL_001",
                 "VALIDATION_ERROR",
                 message,
+                request
+        );
+    }
+
+    // =========================
+    // UPLOADS
+    // =========================
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException ex,
+            HttpServletRequest request) {
+
+        return buildManualErrorResponse(
+                400,
+                "ITM_012",
+                "IMAGE_TOO_LARGE",
+                "Uploaded file exceeds the maximum allowed size",
                 request
         );
     }
