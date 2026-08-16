@@ -3,7 +3,9 @@ package com.rajat.rent_anything.user.api;
 import com.rajat.rent_anything.common.model.ApiResponse;
 import com.rajat.rent_anything.security.CustomUserDetails;
 import com.rajat.rent_anything.user.application.AdminService;
+import com.rajat.rent_anything.user.enums.TrustStatus;
 import com.rajat.rent_anything.user.records.request.UpdateTrustStatusRequest;
+import com.rajat.rent_anything.user.records.response.AdminUserListResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -79,5 +81,41 @@ public class AdminControllers {
         );
 
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    /**
+     * Lists users for administrative review.
+     *
+     * Primary use case: finding users awaiting trust review
+     * (e.g. {@code ?trustStatus=PENDING}) without needing direct
+     * database access.
+     *
+     * @param trustStatus optional trust status filter
+     * @param verified    optional email-verification status filter
+     * @param page        zero-based page number, defaults to 0
+     * @param size        page size, defaults to 20
+     * @param userDetails currently authenticated administrator
+     * @return page of matching users, most recently created first
+     */
+    @GetMapping("/users")
+    public ResponseEntity<ApiResponse<AdminUserListResponse>> listUsers(
+            @RequestParam(value = "trustStatus", required = false) TrustStatus trustStatus,
+            @RequestParam(value = "verified", required = false) Boolean verified,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+
+        Long adminId = userDetails.getDomainUser().getId();
+
+        AdminUserListResponse response = adminService.listUsers(
+                adminId,
+                trustStatus,
+                verified,
+                page,
+                size
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

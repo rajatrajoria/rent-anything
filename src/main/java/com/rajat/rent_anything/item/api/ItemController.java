@@ -169,27 +169,30 @@ public class ItemController {
      * - Availability date range
      * - Optional keyword filter
      * <p>
-     * Results are returned using pagination controls
-     * through limit and offset parameters.
+     * Results use keyset (seek) pagination instead of offset-based
+     * pagination, so large page numbers stay fast: pass the score and
+     * itemId of the last item from the previous page as afterScore/
+     * afterItemId to fetch the next page, or omit both for the first page.
      * <p>
      * Typical Use Cases:
      * - Find items near a user's location
      * - Search for specific item types
      * - Discover available items for desired rental dates
      *
-     * @param lat       search latitude
-     * @param lon       search longitude
-     * @param radius    search radius in kilometers
-     * @param startDate desired rental start date
-     * @param endDate   desired rental end date
-     * @param keyword   optional keyword filter
-     * @param limit     maximum results to return
-     * @param offset    pagination offset
+     * @param lat         search latitude
+     * @param lon         search longitude
+     * @param radius      search radius in kilometers
+     * @param startDate   desired rental start date
+     * @param endDate     desired rental end date
+     * @param keyword     optional keyword filter
+     * @param limit       maximum results to return
+     * @param afterScore  score of the last item on the previous page (omit for the first page)
+     * @param afterItemId id of the last item on the previous page (omit for the first page)
      * @return matching available items
      */
     @GetMapping("/search")
-    public ResponseEntity<ApiResponse<List<ItemSearchResponseDto>>> search(@RequestParam("lat") double lat, @RequestParam("lon") double lon, @RequestParam("radiusKm") double radius, @RequestParam("startDate") LocalDate startDate, @RequestParam("endDate") LocalDate endDate, @RequestParam(value = "keyword", required = false) String keyword, @RequestParam(value = "limit", defaultValue = "10") int limit, @RequestParam(value = "offset", defaultValue = "0") int offset) {
-        List<ItemSearchResponseDto> result = itemService.searchAvailableItemsWithKeywordAndWithinGivenLocation(lat, lon, radius, startDate, endDate, keyword, limit, offset);
+    public ResponseEntity<ApiResponse<List<ItemSearchResponseDto>>> search(@RequestParam("lat") double lat, @RequestParam("lon") double lon, @RequestParam("radiusKm") double radius, @RequestParam("startDate") LocalDate startDate, @RequestParam("endDate") LocalDate endDate, @RequestParam(value = "keyword", required = false) String keyword, @RequestParam(value = "limit", defaultValue = "10") int limit, @RequestParam(value = "afterScore", required = false) Double afterScore, @RequestParam(value = "afterItemId", required = false) Long afterItemId) {
+        List<ItemSearchResponseDto> result = itemService.searchAvailableItemsWithKeywordAndWithinGivenLocation(lat, lon, radius, startDate, endDate, keyword, limit, afterScore, afterItemId);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

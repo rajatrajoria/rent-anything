@@ -120,7 +120,7 @@ public class ItemService {
         validateOwnership(entity.getOwnerId(), userId);
         long imageCount = itemImageService.getImageCount(itemId);
         if (imageCount < 2) {
-            throw new IllegalStateException("At least 2 images are required before activating an item");
+            throw new InvalidItemException(ErrorCode.INVALID_IMAGE_COUNT, "At least 2 images are required before activating an item");
         }
         Item item = ItemMapper.toDomain(entity);
         item.setStatus(ItemStatus.ACTIVE);
@@ -224,24 +224,27 @@ public class ItemService {
      * - Availability dates
      * - Optional keyword
      * <p>
-     * Results are paginated using limit and offset parameters.
+     * Results use keyset (seek) pagination: pass the score and itemId of
+     * the last item from the previous page as afterScore/afterItemId to
+     * fetch the next page, or leave both null for the first page.
      * <p>
      * Distance is returned in kilometers.
      *
-     * @param latitude  search latitude
-     * @param longitude search longitude
-     * @param radiusKm  search radius in kilometers
-     * @param startDate desired rental start date
-     * @param endDate   desired rental end date
-     * @param keyword   optional keyword filter
-     * @param limit     maximum results to return
-     * @param offset    pagination offset
+     * @param latitude    search latitude
+     * @param longitude   search longitude
+     * @param radiusKm    search radius in kilometers
+     * @param startDate   desired rental start date
+     * @param endDate     desired rental end date
+     * @param keyword     optional keyword filter
+     * @param limit       maximum results to return
+     * @param afterScore  score of the last item on the previous page, or null for the first page
+     * @param afterItemId id of the last item on the previous page, or null for the first page
      * @return matching available items
      */
     @Transactional(readOnly = true)
-    public List<ItemSearchResponseDto> searchAvailableItemsWithKeywordAndWithinGivenLocation(double latitude, double longitude, double radiusKm, LocalDate startDate, LocalDate endDate, String keyword, int limit, int offset) {
+    public List<ItemSearchResponseDto> searchAvailableItemsWithKeywordAndWithinGivenLocation(double latitude, double longitude, double radiusKm, LocalDate startDate, LocalDate endDate, String keyword, int limit, Double afterScore, Long afterItemId) {
         double radiusMeters = radiusKm * 1000;
-        List<ItemSearchRow> rows = itemRepository.searchAvailableItemsWithinRadiusAndWithKeywords(latitude, longitude, radiusMeters, startDate, endDate, keyword, limit, offset);
+        List<ItemSearchRow> rows = itemRepository.searchAvailableItemsWithinRadiusAndWithKeywords(latitude, longitude, radiusMeters, startDate, endDate, keyword, limit, afterScore, afterItemId);
 
         List<Long> itemIds = rows.stream().map(ItemSearchRow::getItemId).toList();
         Map<Long, ItemImageResponseDto> thumbnailsByItemId = itemImageService.getThumbnailsByItemIds(itemIds);
@@ -249,7 +252,7 @@ public class ItemService {
         return rows.stream().map(row -> {
             ItemImageResponseDto thumbnail = thumbnailsByItemId.get(row.getItemId());
             String thumbnailUrl = thumbnail != null ? thumbnail.imageUrl() : null;
-            return new ItemSearchResponseDto(row.getItemId(), row.getOwnerId(), row.getTitle(), row.getDescription(), row.getPricePerDay(), row.getDistance() / 1000, row.getTextScore(), thumbnailUrl);
+            return new ItemSearchResponseDto(row.getItemId(), row.getOwnerId(), row.getTitle(), row.getDescription(), row.getPricePerDay(), row.getDistance() / 1000, row.getTextScore(), row.getScore(), thumbnailUrl);
         }).toList();
     }
 

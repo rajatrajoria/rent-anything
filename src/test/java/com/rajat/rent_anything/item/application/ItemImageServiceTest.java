@@ -1,6 +1,9 @@
 package com.rajat.rent_anything.item.application;
 
 import com.rajat.rent_anything.item.dto.ItemImageResponseDto;
+import com.rajat.rent_anything.item.exceptions.IllegalItemModificationException;
+import com.rajat.rent_anything.item.exceptions.InvalidItemException;
+import com.rajat.rent_anything.item.exceptions.ItemImageNotFoundException;
 import com.rajat.rent_anything.item.exceptions.ItemNotFoundException;
 import com.rajat.rent_anything.item.infrastructure.ItemEntity;
 import com.rajat.rent_anything.item.infrastructure.ItemImageEntity;
@@ -77,15 +80,15 @@ class ItemImageServiceTest {
     // ================= uploadImages =================
 
     @Test
-    void uploadImages_emptyFileList_throwsIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class,
+    void uploadImages_emptyFileList_throwsInvalidItemException() {
+        assertThrows(InvalidItemException.class,
                 () -> itemImageService.uploadImages(ITEM_ID, OWNER_ID, List.of()));
         verify(itemRepository, never()).findById(any());
     }
 
     @Test
-    void uploadImages_nullFileList_throwsIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class,
+    void uploadImages_nullFileList_throwsInvalidItemException() {
+        assertThrows(InvalidItemException.class,
                 () -> itemImageService.uploadImages(ITEM_ID, OWNER_ID, null));
     }
 
@@ -98,23 +101,23 @@ class ItemImageServiceTest {
     }
 
     @Test
-    void uploadImages_callerIsNotOwner_throwsIllegalStateException() {
+    void uploadImages_callerIsNotOwner_throwsIllegalItemModificationException() {
         when(itemRepository.findById(ITEM_ID)).thenReturn(Optional.of(ownedItem()));
 
-        assertThrows(IllegalStateException.class,
+        assertThrows(IllegalItemModificationException.class,
                 () -> itemImageService.uploadImages(ITEM_ID, 999L, List.of(validImageFile("a"))));
 
         verify(itemImageRepository, never()).countByItemId(any());
     }
 
     @Test
-    void uploadImages_exceedsMaxOfFiveImages_throwsIllegalArgumentException() {
+    void uploadImages_exceedsMaxOfFiveImages_throwsInvalidItemException() {
         when(itemRepository.findById(ITEM_ID)).thenReturn(Optional.of(ownedItem()));
         when(itemImageRepository.countByItemId(ITEM_ID)).thenReturn(4L);
 
         List<MultipartFile> twoNewFiles = List.of(validImageFile("a"), validImageFile("b"));
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(InvalidItemException.class,
                 () -> itemImageService.uploadImages(ITEM_ID, OWNER_ID, twoNewFiles));
 
         verify(imageStorageService, never()).upload(any(), any());
@@ -169,42 +172,54 @@ class ItemImageServiceTest {
     }
 
     @Test
-    void uploadImages_unsupportedContentType_throwsIllegalArgumentException() {
+    void uploadImages_unsupportedContentType_throwsInvalidItemException() {
         when(itemRepository.findById(ITEM_ID)).thenReturn(Optional.of(ownedItem()));
         when(itemImageRepository.countByItemId(ITEM_ID)).thenReturn(0L);
-        when(itemImageRepository.findByItemIdOrderByDisplayOrderAsc(ITEM_ID)).thenReturn(new ArrayList<>());
 
         MultipartFile badFile = new MockMultipartFile("a", "a.pdf", "application/pdf", new byte[]{1});
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(InvalidItemException.class,
                 () -> itemImageService.uploadImages(ITEM_ID, OWNER_ID, List.of(badFile)));
 
         verify(imageStorageService, never()).upload(any(), any());
     }
 
     @Test
-    void uploadImages_fileTooLarge_throwsIllegalArgumentException() {
+    void uploadImages_fileTooLarge_throwsInvalidItemException() {
         when(itemRepository.findById(ITEM_ID)).thenReturn(Optional.of(ownedItem()));
         when(itemImageRepository.countByItemId(ITEM_ID)).thenReturn(0L);
-        when(itemImageRepository.findByItemIdOrderByDisplayOrderAsc(ITEM_ID)).thenReturn(new ArrayList<>());
 
         byte[] tooBig = new byte[11 * 1024 * 1024];
         MultipartFile bigFile = new MockMultipartFile("a", "a.jpg", "image/jpeg", tooBig);
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(InvalidItemException.class,
                 () -> itemImageService.uploadImages(ITEM_ID, OWNER_ID, List.of(bigFile)));
     }
 
     @Test
-    void uploadImages_emptyFile_throwsIllegalArgumentException() {
+    void uploadImages_emptyFile_throwsInvalidItemException() {
         when(itemRepository.findById(ITEM_ID)).thenReturn(Optional.of(ownedItem()));
         when(itemImageRepository.countByItemId(ITEM_ID)).thenReturn(0L);
-        when(itemImageRepository.findByItemIdOrderByDisplayOrderAsc(ITEM_ID)).thenReturn(new ArrayList<>());
 
         MultipartFile empty = new MockMultipartFile("a", "a.jpg", "image/jpeg", new byte[]{});
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(InvalidItemException.class,
                 () -> itemImageService.uploadImages(ITEM_ID, OWNER_ID, List.of(empty)));
+    }
+
+    @Test
+    void uploadImages_oneInvalidFileInBatch_doesNotUploadAnyFile() {
+        when(itemRepository.findById(ITEM_ID)).thenReturn(Optional.of(ownedItem()));
+        when(itemImageRepository.countByItemId(ITEM_ID)).thenReturn(0L);
+
+        MultipartFile goodFile = validImageFile("a");
+        MultipartFile badFile = new MockMultipartFile("b", "b.pdf", "application/pdf", new byte[]{1});
+
+        assertThrows(InvalidItemException.class,
+                () -> itemImageService.uploadImages(ITEM_ID, OWNER_ID, List.of(goodFile, badFile)));
+
+        verify(imageStorageService, never()).upload(any(), any());
+        verify(itemImageRepository, never()).save(any());
     }
 
     // ================= getItemImages / getThumbnail =================
@@ -302,10 +317,10 @@ class ItemImageServiceTest {
     }
 
     @Test
-    void deleteImage_imageDoesNotExist_throwsIllegalArgumentException() {
+    void deleteImage_imageDoesNotExist_throwsItemImageNotFoundException() {
         when(itemImageRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class, () -> itemImageService.deleteImage(1L, OWNER_ID));
+        assertThrows(ItemImageNotFoundException.class, () -> itemImageService.deleteImage(1L, OWNER_ID));
     }
 
     @Test
@@ -318,12 +333,12 @@ class ItemImageServiceTest {
     }
 
     @Test
-    void deleteImage_callerIsNotOwner_throwsIllegalStateException() {
+    void deleteImage_callerIsNotOwner_throwsIllegalItemModificationException() {
         ItemImageEntity image = imageEntity(1L, false);
         when(itemImageRepository.findById(1L)).thenReturn(Optional.of(image));
         when(itemRepository.findById(ITEM_ID)).thenReturn(Optional.of(ownedItem()));
 
-        assertThrows(IllegalStateException.class, () -> itemImageService.deleteImage(1L, 999L));
+        assertThrows(IllegalItemModificationException.class, () -> itemImageService.deleteImage(1L, 999L));
 
         verify(imageStorageService, never()).delete(any());
     }

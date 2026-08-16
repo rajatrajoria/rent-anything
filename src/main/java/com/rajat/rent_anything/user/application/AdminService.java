@@ -5,10 +5,15 @@ import com.rajat.rent_anything.user.exceptions.UserInputException;
 import com.rajat.rent_anything.user.exceptions.UserOperationException;
 import com.rajat.rent_anything.user.infrastructure.UserEntity;
 import com.rajat.rent_anything.user.infrastructure.UserRepository;
+import com.rajat.rent_anything.user.records.response.AdminUserListResponse;
+import com.rajat.rent_anything.user.records.response.AdminUserSummaryResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static com.rajat.rent_anything.common.enums.ErrorCode.*;
 
@@ -99,5 +104,62 @@ public class AdminService {
 
         // Update audit timestamp to reflect the administrative change.
         userEntity.setUpdatedAt(LocalDateTime.now());
+    }
+
+    /**
+     * Lists users for administrative review, optionally filtered by
+     * trust status and/or email-verification status.
+     *
+     * Intended for the common moderation workflow of finding users
+     * awaiting trust review (e.g. trustStatus=PENDING) without needing
+     * direct database access.
+     *
+     * @param adminId     administrator performing the action
+     * @param trustStatus optional trust status filter
+     * @param verified    optional verification status filter
+     * @param page        zero-based page number
+     * @param size        page size
+     * @throws UserOperationException when the caller is not an administrator
+     */
+    public AdminUserListResponse listUsers(
+            Long adminId,
+            TrustStatus trustStatus,
+            Boolean verified,
+            int page,
+            int size
+    ) {
+
+        if (!userService.isAdmin(adminId)) {
+            throw new UserOperationException(
+                    USER_OPERATION_UNAUTHORIZED,
+                    "Only admins can list users"
+            );
+        }
+
+        Page<UserEntity> result = userRepository.search(
+                trustStatus,
+                verified,
+                PageRequest.of(page, size)
+        );
+
+        List<AdminUserSummaryResponse> users = result.getContent().stream()
+                .map(u -> new AdminUserSummaryResponse(
+                        u.getId(),
+                        u.getEmail(),
+                        u.getName(),
+                        u.isVerified(),
+                        u.getTrustStatus(),
+                        u.getRole(),
+                        u.getCreatedAt()
+                ))
+                .toList();
+
+        return new AdminUserListResponse(
+                users,
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        );
     }
 }

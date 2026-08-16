@@ -8,4 +8,5 @@ public interface ItemSearchRow {
     Double getPricePerDay();
     Double getDistance();
     Double getTextScore();
+    Double getScore();
 }

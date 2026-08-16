@@ -53,7 +53,7 @@ public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
      * - Booking conflict detection.
      * - Distance-based ranking.
      * - Text relevance ranking.
-     * - Pagination support.
+     * - Keyset (seek) pagination.
      *
      * Filtering Logic:
      * 1. Item must be ACTIVE.
@@ -75,6 +75,15 @@ public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
      * Items are excluded when they contain PENDING or CONFIRMED
      * bookings overlapping the requested rental period.
      *
+     * Pagination:
+     * Results are ordered by (score DESC, itemId DESC) — itemId breaks
+     * ties deterministically, since two items can share the same score.
+     * The first page is requested with afterScore/afterItemId left null;
+     * each subsequent page is requested using the score and itemId of the
+     * last row from the previous page. This avoids the performance cliff
+     * of large OFFSET values, since Postgres can seek directly to the
+     * cursor position instead of scanning and discarding every prior row.
+     *
      * @param latitude search latitude
      * @param longitude search longitude
      * @param radiusMeters search radius in meters
@@ -82,12 +91,12 @@ public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
      * @param endDate desired rental end date
      * @param keyword optional keyword filter
      * @param limit maximum results to return
-     * @param offset pagination offset
+     * @param afterScore score of the last item on the previous page, or null for the first page
+     * @param afterItemId id of the last item on the previous page, or null for the first page
      * @return ranked list of matching items
      */
     @Query(value = """
-    SELECT *
-    FROM(
+    SELECT * FROM (
         SELECT
         i.id AS itemId,
         i.owner_id AS ownerId,
@@ -105,7 +114,16 @@ public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
         ST_Distance(
             i.location,
             ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)
-        ) AS distance
+        ) AS distance,
+
+        -- Hybrid ranking based on relevance and proximity.
+        (
+            COALESCE(ts_rank(i.search_vector, plainto_tsquery(:keyword)), 0) * 0.7
+        )
+        +
+        (
+            (1 / (1 + ST_Distance(i.location, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)))) * 0.3
+        ) AS score
 
     FROM item_schema.items i
 
@@ -133,16 +151,18 @@ public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
               AND b.start_date <= :endDate
               AND b.end_date >= :startDate
         )
+    ) t
+
+    -- Keyset filter: only rows strictly after the previous page's cursor.
+    WHERE (
+        CAST(:afterScore AS DOUBLE PRECISION) IS NULL
+        OR t.score < CAST(:afterScore AS DOUBLE PRECISION)
+        OR (t.score = CAST(:afterScore AS DOUBLE PRECISION) AND t.itemId < CAST(:afterItemId AS BIGINT))
     )
 
-    -- Hybrid ranking based on relevance and proximity.
-    ORDER BY
-        (textScore * 0.7)
-        +
-        ((1 / (1 + distance)) * 0.3)
-    DESC
+    ORDER BY t.score DESC, t.itemId DESC
 
-    LIMIT :limit OFFSET :offset
+    LIMIT :limit
     """, nativeQuery = true)
     List<ItemSearchRow> searchAvailableItemsWithinRadiusAndWithKeywords(
             @Param("lat") double latitude,
@@ -152,6 +172,7 @@ public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
             @Param("endDate") LocalDate endDate,
             @Param("keyword") String keyword,
             @Param("limit") int limit,
-            @Param("offset") int offset
+            @Param("afterScore") Double afterScore,
+            @Param("afterItemId") Long afterItemId
     );
 }

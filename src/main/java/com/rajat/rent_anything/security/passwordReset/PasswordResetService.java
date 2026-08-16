@@ -41,7 +41,7 @@ public class PasswordResetService {
     public PasswordResetService(
             PasswordResetTokenRepository passwordResetTokenRepository,
             UserService userService,
-            @Value("${jwt.password.reset.token.expiration-minutes:30}") long expiryMinutes
+            @Value("${jwt.password.reset.expiration-minutes}") long expiryMinutes
     ) {
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.userService = userService;

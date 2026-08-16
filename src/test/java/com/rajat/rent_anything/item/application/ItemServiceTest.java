@@ -121,11 +121,11 @@ class ItemServiceTest {
     }
 
     @Test
-    void activateItem_fewerThanTwoImages_throwsIllegalStateException() {
+    void activateItem_fewerThanTwoImages_throwsInvalidItemException() {
         when(itemRepository.findById(ITEM_ID)).thenReturn(Optional.of(itemEntity(ItemStatus.INACTIVE)));
         when(itemImageService.getImageCount(ITEM_ID)).thenReturn(1L);
 
-        assertThrows(IllegalStateException.class, () -> itemService.activateItem(ITEM_ID, OWNER_ID));
+        assertThrows(InvalidItemException.class, () -> itemService.activateItem(ITEM_ID, OWNER_ID));
 
         verify(itemRepository, never()).save(any());
     }
@@ -252,9 +252,10 @@ class ItemServiceTest {
         when(row.getPricePerDay()).thenReturn(100.0);
         when(row.getDistance()).thenReturn(2500.0); // meters
         when(row.getTextScore()).thenReturn(0.8);
+        when(row.getScore()).thenReturn(0.65);
 
         when(itemRepository.searchAvailableItemsWithinRadiusAndWithKeywords(
-                anyDouble(), anyDouble(), anyDouble(), any(), any(), any(), anyInt(), anyInt()))
+                anyDouble(), anyDouble(), anyDouble(), any(), any(), any(), anyInt(), any(), any()))
                 .thenReturn(List.of(row));
 
         ItemImageResponseDto thumbnail = new ItemImageResponseDto(1L, "http://img/thumb.jpg", true, 1);
@@ -262,7 +263,7 @@ class ItemServiceTest {
                 .thenReturn(Map.of(ITEM_ID, thumbnail));
 
         List<ItemSearchResponseDto> results = itemService.searchAvailableItemsWithKeywordAndWithinGivenLocation(
-                12.0, 34.0, 5.0, FROM, TO, "camera", 10, 0);
+                12.0, 34.0, 5.0, FROM, TO, "camera", 10, null, null);
 
         assertThat(results).hasSize(1);
         ItemSearchResponseDto dto = results.get(0);
@@ -283,14 +284,15 @@ class ItemServiceTest {
         when(row.getPricePerDay()).thenReturn(100.0);
         when(row.getDistance()).thenReturn(1000.0);
         when(row.getTextScore()).thenReturn(0.5);
+        when(row.getScore()).thenReturn(0.4);
 
         when(itemRepository.searchAvailableItemsWithinRadiusAndWithKeywords(
-                anyDouble(), anyDouble(), anyDouble(), any(), any(), any(), anyInt(), anyInt()))
+                anyDouble(), anyDouble(), anyDouble(), any(), any(), any(), anyInt(), any(), any()))
                 .thenReturn(List.of(row));
         when(itemImageService.getThumbnailsByItemIds(List.of(ITEM_ID))).thenReturn(Map.of());
 
         List<ItemSearchResponseDto> results = itemService.searchAvailableItemsWithKeywordAndWithinGivenLocation(
-                12.0, 34.0, 5.0, FROM, TO, null, 10, 0);
+                12.0, 34.0, 5.0, FROM, TO, null, 10, null, null);
 
         assertThat(results.get(0).thumbnailUrl()).isNull();
     }

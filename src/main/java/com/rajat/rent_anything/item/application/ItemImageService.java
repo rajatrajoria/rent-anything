@@ -1,6 +1,10 @@
 package com.rajat.rent_anything.item.application;
 
+import com.rajat.rent_anything.common.enums.ErrorCode;
 import com.rajat.rent_anything.item.dto.ItemImageResponseDto;
+import com.rajat.rent_anything.item.exceptions.IllegalItemModificationException;
+import com.rajat.rent_anything.item.exceptions.InvalidItemException;
+import com.rajat.rent_anything.item.exceptions.ItemImageNotFoundException;
 import com.rajat.rent_anything.item.exceptions.ItemNotFoundException;
 import com.rajat.rent_anything.item.infrastructure.ItemEntity;
 import com.rajat.rent_anything.item.infrastructure.ItemImageEntity;
@@ -50,7 +54,7 @@ public class ItemImageService {
      */
     public List<ItemImageResponseDto> uploadImages(Long itemId, Long userId, List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
-            throw new IllegalArgumentException("At least one image is required");
+            throw new InvalidItemException(ErrorCode.INVALID_IMAGE_COUNT, "At least one image is required");
         }
         ItemEntity item = itemRepository.findById(itemId).orElseThrow(() -> new ItemNotFoundException("Item not found"));
 
@@ -58,7 +62,14 @@ public class ItemImageService {
 
         long existingImageCount = itemImageRepository.countByItemId(itemId);
         if (existingImageCount + files.size() > MAX_IMAGES_PER_ITEM) {
-            throw new IllegalArgumentException("Maximum 5 images allowed per item");
+            throw new InvalidItemException(ErrorCode.INVALID_IMAGE_COUNT, "Maximum 5 images allowed per item");
+        }
+
+        // Validate the whole batch before uploading anything, so one bad file
+        // in a multi-file request can't leave earlier files persisted while
+        // the request as a whole fails.
+        for (MultipartFile file : files) {
+            validateImage(file);
         }
 
         List<ItemImageEntity> existingImages = itemImageRepository.findByItemIdOrderByDisplayOrderAsc(itemId);
@@ -70,8 +81,6 @@ public class ItemImageService {
         List<ItemImageResponseDto> uploadedImages = new ArrayList<>();
 
         for (MultipartFile file : files) {
-            validateImage(file);
-
             String imageKey = imageStorageService.upload(itemId, file);
 
             ItemImageEntity image = new ItemImageEntity();
@@ -131,7 +140,7 @@ public class ItemImageService {
      * the next image becomes thumbnail.
      */
     public void deleteImage(Long imageId, Long userId) {
-        ItemImageEntity image = itemImageRepository.findById(imageId).orElseThrow(() -> new IllegalArgumentException("Image not found"));
+        ItemImageEntity image = itemImageRepository.findById(imageId).orElseThrow(() -> new ItemImageNotFoundException("Image not found"));
         ItemEntity item = itemRepository.findById(image.getItemId()).orElseThrow(() -> new ItemNotFoundException("Item not found"));
         validateOwnership(item, userId);
         boolean deletedThumbnail = image.isThumbnail();
@@ -160,20 +169,20 @@ public class ItemImageService {
 
     private void validateImage(MultipartFile file) {
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("Image file is empty");
+            throw new InvalidItemException(ErrorCode.INVALID_ITEM_INPUT, "Image file is empty");
         }
         if (file.getSize() > MAX_IMAGE_SIZE_BYTES) {
-            throw new IllegalArgumentException("Maximum image size is 10MB");
+            throw new InvalidItemException(ErrorCode.IMAGE_TOO_LARGE, "Maximum image size is 10MB");
         }
         String contentType = file.getContentType();
         if (contentType == null || !SUPPORTED_CONTENT_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException("Only JPEG, PNG and WEBP images are supported");
+            throw new InvalidItemException(ErrorCode.INVALID_IMAGE_TYPE, "Only JPEG, PNG and WEBP images are supported");
         }
     }
 
     private void validateOwnership(ItemEntity item, Long userId) {
         if (!item.getOwnerId().equals(userId)) {
-            throw new IllegalStateException("Only item owner can manage images");
+            throw new IllegalItemModificationException("Only item owner can manage images");
         }
     }
 
