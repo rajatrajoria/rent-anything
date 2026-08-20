@@ -1,5 +1,7 @@
 package com.rajat.rent_anything.user.records.response;
 
+import com.rajat.rent_anything.user.enums.TrustStatus;
+
 import java.time.LocalDateTime;
 
 public record UserProfileResponse(
@@ -10,6 +12,7 @@ public record UserProfileResponse(
         boolean isVerified,
         String role,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        TrustStatus trustStatus
 ) {
 }

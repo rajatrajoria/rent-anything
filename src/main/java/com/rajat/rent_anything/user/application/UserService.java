@@ -3,6 +3,7 @@ package com.rajat.rent_anything.user.application;
 import com.rajat.rent_anything.common.enums.ErrorCode;
 import com.rajat.rent_anything.security.refreshTokens.RefreshTokenService;
 import com.rajat.rent_anything.user.domain.User;
+import com.rajat.rent_anything.user.enums.TrustStatus;
 import com.rajat.rent_anything.user.enums.UserRole;
 import com.rajat.rent_anything.user.exceptions.UserOperationException;
 import com.rajat.rent_anything.user.infrastructure.UserEntity;
@@ -166,7 +167,37 @@ public class UserService {
                 userEntity.isVerified(),
                 userEntity.getRole().name(),
                 userEntity.getCreatedAt(),
-                userEntity.getUpdatedAt()
+                userEntity.getUpdatedAt(),
+                userEntity.getTrustStatus()
+        );
+    }
+
+    /**
+     * Sets a user's trust status directly.
+     *
+     * Unlike {@code AdminService.updateUserTrustStatus}, this has no
+     * self-demotion guard — that rule is specific to the manual admin
+     * override flow. This method is the seam other flows (e.g. KYC
+     * approval/rejection) use to flip trust status as a side effect of
+     * their own review decision.
+     *
+     * @param userId target user
+     * @param status new trust status
+     */
+    @Transactional
+    public void setTrustStatus(Long userId, TrustStatus status) {
+
+        UserEntity userEntity = getUserEntityById(userId);
+
+        userEntity.setTrustStatus(status);
+        userEntity.setUpdatedAt(LocalDateTime.now());
+
+        userRepository.save(userEntity);
+
+        log.info(
+                "Trust status set to {} for userId: {}",
+                status,
+                userId
         );
     }
 
