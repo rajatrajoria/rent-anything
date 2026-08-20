@@ -153,7 +153,7 @@ public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
         )
     ) t
 
-    -- Keyset filter: only rows strictly after the previous page's cursor.
+    -- Keyset filter: only rows strictly after the previous pages cursor.
     WHERE (
         CAST(:afterScore AS DOUBLE PRECISION) IS NULL
         OR t.score < CAST(:afterScore AS DOUBLE PRECISION)
