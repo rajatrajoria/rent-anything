@@ -45,4 +45,15 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
             @Param("itemId") Long itemId,
             @Param("statuses") List<BookingStatus> statuses
     );
+
+    List<BookingEntity> findByRenterIdOrderByCreatedAtDesc(Long renterId);
+
+    @Query("""
+        SELECT b FROM BookingEntity b
+        WHERE b.itemId IN (
+            SELECT i.id FROM ItemEntity i WHERE i.ownerId = :ownerId
+        )
+        ORDER BY b.createdAt DESC
+    """)
+    List<BookingEntity> findByItemOwnerId(@Param("ownerId") Long ownerId);
 }

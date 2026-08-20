@@ -2,6 +2,7 @@ package com.rajat.rent_anything.booking.api;
 
 import com.rajat.rent_anything.booking.application.BookingService;
 import com.rajat.rent_anything.booking.application.commands.CreateBookingCommand;
+import com.rajat.rent_anything.booking.dto.BookingResponseDto;
 import com.rajat.rent_anything.common.model.ApiResponse;
 import com.rajat.rent_anything.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -9,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 /**
  * REST controller responsible for booking lifecycle operations.
  *
@@ -136,5 +139,41 @@ public class BookingController {
         bookingService.cancelBooking(id, userId);
 
         return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    /**
+     * Lists bookings made by the authenticated user as a renter.
+     *
+     * @param userDetails authenticated user
+     * @return bookings ordered from most to least recently created
+     */
+    @GetMapping("/mine")
+    public ResponseEntity<ApiResponse<List<BookingResponseDto>>> getMyBookings(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+
+        Long renterId = userDetails.getDomainUser().getId();
+
+        return ResponseEntity.ok(
+                ApiResponse.success(bookingService.getMyBookings(renterId))
+        );
+    }
+
+    /**
+     * Lists bookings made against items owned by the authenticated user.
+     *
+     * @param userDetails authenticated user
+     * @return bookings ordered from most to least recently created
+     */
+    @GetMapping("/received")
+    public ResponseEntity<ApiResponse<List<BookingResponseDto>>> getReceivedBookings(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+
+        Long ownerId = userDetails.getDomainUser().getId();
+
+        return ResponseEntity.ok(
+                ApiResponse.success(bookingService.getReceivedBookings(ownerId))
+        );
     }
 }

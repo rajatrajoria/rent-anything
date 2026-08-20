@@ -3,6 +3,7 @@ package com.rajat.rent_anything.booking.application;
 import com.rajat.rent_anything.booking.application.commands.CreateBookingCommand;
 import com.rajat.rent_anything.booking.domain.Booking;
 import com.rajat.rent_anything.booking.domain.BookingStatus;
+import com.rajat.rent_anything.booking.dto.BookingResponseDto;
 import com.rajat.rent_anything.booking.exceptions.BookingAccessDeniedException;
 import com.rajat.rent_anything.booking.exceptions.InvalidBookingDatesException;
 import com.rajat.rent_anything.booking.exceptions.NoSuchBookingException;
@@ -20,6 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 /**
  * Service responsible for managing the booking lifecycle.
  *
@@ -261,5 +265,60 @@ public class BookingService {
         bookingRepository.save(
                 BookingMapper.toEntity(booking)
         );
+    }
+
+    /**
+     * Lists bookings made by the given user as a renter.
+     *
+     * @param renterId renter identifier
+     * @return bookings ordered from most to least recently created
+     */
+    @Transactional(readOnly = true)
+    public List<BookingResponseDto> getMyBookings(Long renterId) {
+        return toResponseDtos(
+                bookingRepository.findByRenterIdOrderByCreatedAtDesc(renterId)
+        );
+    }
+
+    /**
+     * Lists bookings made against items owned by the given user.
+     *
+     * @param ownerId item owner identifier
+     * @return bookings ordered from most to least recently created
+     */
+    @Transactional(readOnly = true)
+    public List<BookingResponseDto> getReceivedBookings(Long ownerId) {
+        return toResponseDtos(
+                bookingRepository.findByItemOwnerId(ownerId)
+        );
+    }
+
+    private List<BookingResponseDto> toResponseDtos(List<BookingEntity> bookings) {
+
+        List<Long> itemIds = bookings.stream()
+                .map(BookingEntity::getItemId)
+                .distinct()
+                .toList();
+
+        Map<Long, ItemEntity> itemsById = itemRepository.findAllById(itemIds).stream()
+                .collect(Collectors.toMap(ItemEntity::getId, Function.identity()));
+
+        return bookings.stream()
+                .map(entity -> {
+                    ItemEntity item = itemsById.get(entity.getItemId());
+                    return new BookingResponseDto(
+                            entity.getId(),
+                            entity.getItemId(),
+                            item != null ? item.getTitle() : null,
+                            entity.getRenterId(),
+                            item != null ? item.getOwnerId() : null,
+                            entity.getStartDate(),
+                            entity.getEndDate(),
+                            entity.getAmount(),
+                            entity.getStatus().name(),
+                            entity.getCreatedAt()
+                    );
+                })
+                .toList();
     }
 }

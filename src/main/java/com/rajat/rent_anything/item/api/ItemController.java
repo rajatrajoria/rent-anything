@@ -5,6 +5,7 @@ import com.rajat.rent_anything.item.application.ItemService;
 import com.rajat.rent_anything.item.application.commands.CreateItemCommand;
 import com.rajat.rent_anything.item.dto.ItemDetailsResponseDto;
 import com.rajat.rent_anything.item.dto.ItemSearchResponseDto;
+import com.rajat.rent_anything.item.dto.ItemSummaryResponseDto;
 import com.rajat.rent_anything.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -199,5 +200,17 @@ public class ItemController {
     @GetMapping("/{itemId}")
     public ResponseEntity<ApiResponse<ItemDetailsResponseDto>> getItemDetails(@PathVariable("itemId") Long itemId) {
         return ResponseEntity.ok(ApiResponse.success(itemService.getItemDetails(itemId)));
+    }
+
+    /**
+     * Lists all items owned by the authenticated user.
+     *
+     * @param userDetails authenticated user
+     * @return items ordered from most to least recently created
+     */
+    @GetMapping("/mine")
+    public ResponseEntity<ApiResponse<List<ItemSummaryResponseDto>>> getMyItems(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long ownerId = userDetails.getDomainUser().getId();
+        return ResponseEntity.ok(ApiResponse.success(itemService.getMyItems(ownerId)));
     }
 }

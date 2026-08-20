@@ -10,6 +10,7 @@ import com.rajat.rent_anything.item.domain.ItemStatus;
 import com.rajat.rent_anything.item.dto.ItemDetailsResponseDto;
 import com.rajat.rent_anything.item.dto.ItemImageResponseDto;
 import com.rajat.rent_anything.item.dto.ItemSearchResponseDto;
+import com.rajat.rent_anything.item.dto.ItemSummaryResponseDto;
 import com.rajat.rent_anything.item.exceptions.IllegalItemModificationException;
 import com.rajat.rent_anything.item.exceptions.InvalidItemException;
 import com.rajat.rent_anything.item.exceptions.ItemNotFoundException;
@@ -262,6 +263,26 @@ public class ItemService {
         ItemImageResponseDto thumbnail = itemImageService.getThumbnail(itemId);
         List<ItemImageResponseDto> images = itemImageService.getItemImages(itemId);
         return new ItemDetailsResponseDto(item.getId(), item.getOwnerId(), item.getCategoryId(), item.getTitle(), item.getDescription(), item.getPricePerDay(), item.getDepositAmount(), item.getStatus().name(), item.getAvailableFrom(), item.getAvailableTo(), thumbnail != null ? thumbnail.imageUrl() : null, images);
+    }
+
+    /**
+     * Lists all items owned by the given user.
+     *
+     * @param ownerId owner identifier
+     * @return items ordered from most to least recently created
+     */
+    @Transactional(readOnly = true)
+    public List<ItemSummaryResponseDto> getMyItems(Long ownerId) {
+        List<ItemEntity> items = itemRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId);
+
+        List<Long> itemIds = items.stream().map(ItemEntity::getId).toList();
+        Map<Long, ItemImageResponseDto> thumbnailsByItemId = itemImageService.getThumbnailsByItemIds(itemIds);
+
+        return items.stream().map(item -> {
+            ItemImageResponseDto thumbnail = thumbnailsByItemId.get(item.getId());
+            String thumbnailUrl = thumbnail != null ? thumbnail.imageUrl() : null;
+            return new ItemSummaryResponseDto(item.getId(), item.getTitle(), item.getDescription(), item.getPricePerDay(), item.getDepositAmount(), item.getStatus().name(), item.getAvailableFrom(), item.getAvailableTo(), thumbnailUrl);
+        }).toList();
     }
 
     private void validateOwnership(Long ownerId, Long userId) {

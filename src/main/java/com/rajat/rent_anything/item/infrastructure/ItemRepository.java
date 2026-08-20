@@ -44,6 +44,14 @@ public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
     ItemEntity save(ItemEntity itemEntity);
 
     /**
+     * Retrieves all items owned by the given user.
+     *
+     * @param ownerId owner identifier
+     * @return items ordered from most to least recently created
+     */
+    List<ItemEntity> findByOwnerIdOrderByCreatedAtDesc(Long ownerId);
+
+    /**
      * Searches for available items within a specified geographic radius
      * and optionally matches them against a keyword query.
      *

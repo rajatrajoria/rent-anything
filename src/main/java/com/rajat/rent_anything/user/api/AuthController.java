@@ -14,6 +14,7 @@ import com.rajat.rent_anything.user.exceptions.UserOperationException;
 import com.rajat.rent_anything.user.records.request.LoginRequest;
 import com.rajat.rent_anything.user.records.response.AuthResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -75,12 +76,23 @@ public class AuthController {
      */
     private final PasswordResetService passwordResetService;
 
+    /**
+     * Base URL of the frontend application.
+     *
+     * Verification and password-reset emails link here rather than
+     * directly at this API, since those flows are handled by frontend
+     * pages that collect a new password / show a result, then call
+     * the corresponding API endpoint themselves.
+     */
+    private final String frontendUrl;
+
     public AuthController(UserService userService,
             AuthenticationManager authenticationManager,
             JwtService jwtService,
             RefreshTokenService refreshTokenService,
             EmailVerificationService emailVerificationService,
-            EmailService emailService, PasswordResetService passwordResetService) {
+            EmailService emailService, PasswordResetService passwordResetService,
+            @Value("${app.frontend-url:http://localhost:3000}") String frontendUrl) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
@@ -88,6 +100,7 @@ public class AuthController {
         this.emailVerificationService = emailVerificationService;
         this.emailService = emailService;
         this.passwordResetService = passwordResetService;
+        this.frontendUrl = frontendUrl;
     }
 
     /**
@@ -113,7 +126,7 @@ public class AuthController {
         log.info("Sign up attempt for email: {}", email);
         Long newUserId = userService.signUp(email, password);
         String emailVerificationToken = emailVerificationService.createEmailVerificationToken(newUserId);
-        String verificationLink = "http://localhost:8080/auth/verify-email?token=" + emailVerificationToken;
+        String verificationLink = frontendUrl + "/verify-email?token=" + emailVerificationToken;
         emailService.sendEmail(
                 email,
                 "Verify your email for rentanything.com",
@@ -207,7 +220,7 @@ public class AuthController {
             User user = userService.findByEmail(email);
             if (!user.isVerified()) {
                 String newVerificationToken = emailVerificationService.resendEmailVerificationToken(user.getId());
-                String verificationLink = "http://localhost:8080/auth/verify-email?token=" + newVerificationToken;
+                String verificationLink = frontendUrl + "/verify-email?token=" + newVerificationToken;
                 emailService.sendEmail(
                         email,
                         "Verify your email for rentanything.com",
@@ -235,7 +248,7 @@ public class AuthController {
         try {
             User user = userService.findByEmail(email);
             String passwordResetToken = passwordResetService.createPasswordResetToken(user.getId());
-            String resetPasswordLink = "http://localhost:8080/auth/reset-password?token=" + passwordResetToken;
+            String resetPasswordLink = frontendUrl + "/reset-password?token=" + passwordResetToken;
             emailService.sendEmail(
                     email,
                     "Reset your password for rentanything.com",
