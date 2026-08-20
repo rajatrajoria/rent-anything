@@ -7,6 +7,7 @@ import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.http.Method;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,8 +18,6 @@ import java.util.UUID;
 @Slf4j
 public class MinioImageStorageService implements ImageStorageService {
 
-    private static final String BUCKET_NAME = "rent-anything";
-
     private static final Map<String, String> EXTENSIONS_BY_CONTENT_TYPE = Map.of(
             "image/jpeg", ".jpg",
             "image/png", ".png",
@@ -26,9 +25,11 @@ public class MinioImageStorageService implements ImageStorageService {
     );
 
     private final MinioClient minioClient;
+    private final String bucketName;
 
-    public MinioImageStorageService(MinioClient minioClient) {
+    public MinioImageStorageService(MinioClient minioClient, @Value("${minio.bucket-name}") String bucketName) {
         this.minioClient = minioClient;
+        this.bucketName = bucketName;
     }
 
     @Override
@@ -40,7 +41,7 @@ public class MinioImageStorageService implements ImageStorageService {
 
             String imageKey = "items/" + itemId + "/" + UUID.randomUUID() + extension;
 
-            minioClient.putObject(PutObjectArgs.builder().bucket(BUCKET_NAME).object(imageKey).stream(file.getInputStream(), file.getSize(), -1).contentType(file.getContentType()).build());
+            minioClient.putObject(PutObjectArgs.builder().bucket(bucketName).object(imageKey).stream(file.getInputStream(), file.getSize(), -1).contentType(file.getContentType()).build());
 
             log.info("Uploaded image for itemId {} with key {}", itemId, imageKey);
 
@@ -59,7 +60,7 @@ public class MinioImageStorageService implements ImageStorageService {
 
         try {
 
-            minioClient.removeObject(RemoveObjectArgs.builder().bucket(BUCKET_NAME).object(imageKey).build());
+            minioClient.removeObject(RemoveObjectArgs.builder().bucket(bucketName).object(imageKey).build());
 
             log.info("Deleted image {}", imageKey);
 
@@ -77,7 +78,7 @@ public class MinioImageStorageService implements ImageStorageService {
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
-                            .bucket(BUCKET_NAME)
+                            .bucket(bucketName)
                             .object(imageKey)
                             .expiry(60 * 60)
                             .build()
