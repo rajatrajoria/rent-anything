@@ -43,7 +43,17 @@ public enum ErrorCode {
     AUTH_ACCOUNT_NOT_VERIFIED("AUTH_001", "Account not verified", HttpStatus.UNAUTHORIZED),
     AUTH_INVALID_CREDENTIALS("AUTH_002", "Invalid email or password", HttpStatus.UNAUTHORIZED),
     AUTH_ACCESS_DENIED("AUTH_003", "Access denied", HttpStatus.FORBIDDEN),
-    AUTH_UNAUTHENTICATED("AUTH_004", "Authentication required", HttpStatus.UNAUTHORIZED);
+    AUTH_UNAUTHENTICATED("AUTH_004", "Authentication required", HttpStatus.UNAUTHORIZED),
+
+    // ===== KYC =====
+    KYC_SUBMISSION_NOT_FOUND("KYC_001", "KYC submission not found", HttpStatus.NOT_FOUND),
+    INVALID_KYC_INPUT("KYC_002", "Invalid KYC submission input", HttpStatus.BAD_REQUEST),
+    INVALID_ID_DOCUMENT_TYPE("KYC_003", "Invalid ID document type", HttpStatus.BAD_REQUEST),
+    KYC_DOCUMENT_TOO_LARGE("KYC_004", "KYC document exceeds maximum allowed size", HttpStatus.BAD_REQUEST),
+    INVALID_KYC_DOCUMENT_FILE_TYPE("KYC_005", "Unsupported KYC document file type", HttpStatus.BAD_REQUEST),
+    KYC_SUBMISSION_ALREADY_REVIEWED("KYC_006", "KYC submission has already been reviewed", HttpStatus.CONFLICT),
+    KYC_RESUBMISSION_NOT_ALLOWED("KYC_007", "KYC submission cannot be resubmitted in its current state", HttpStatus.CONFLICT),
+    KYC_DOCUMENT_STORAGE_FAILURE("KYC_008", "KYC document storage operation failed", HttpStatus.INTERNAL_SERVER_ERROR);
 
 
     private final String code;

@@ -5,6 +5,7 @@ import com.rajat.rent_anything.common.enums.ErrorCode;
 import com.rajat.rent_anything.common.model.ApiError;
 import com.rajat.rent_anything.common.model.ApiResponse;
 import com.rajat.rent_anything.item.exceptions.ItemException;
+import com.rajat.rent_anything.kyc.exceptions.KycException;
 import com.rajat.rent_anything.user.exceptions.UserException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +50,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ItemException.class)
     public ResponseEntity<ApiResponse<Object>> handleItemException(
             ItemException ex,
+            HttpServletRequest request) {
+        return buildErrorResponse(ex.getErrorCode(), ex.getMessage(), request);
+    }
+
+    // =========================
+    // KYC
+    // =========================
+    @ExceptionHandler(KycException.class)
+    public ResponseEntity<ApiResponse<Object>> handleKycException(
+            KycException ex,
             HttpServletRequest request) {
         return buildErrorResponse(ex.getErrorCode(), ex.getMessage(), request);
     }
