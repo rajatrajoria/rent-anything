@@ -114,6 +114,38 @@ PostgreSQL (PostGIS + Full-Text Search)
 
 ---
 
+### 6. My Items
+
+**GET** `/items/mine`
+
+**Notes**
+
+* Requires authentication only — no trust gate (viewing your own listings isn't a mutation)
+* Returns items in **any** status (ACTIVE, INACTIVE, DELETED), most recently created first — unlike `/items/search`, which only ever returns ACTIVE ones
+* Each row includes its thumbnail URL if one exists, batched via `ItemImageService.getThumbnailsByItemIds` to avoid an N+1 lookup
+* Powers the frontend dashboard's "My listings" tab
+
+---
+
+## Image Upload (`ItemImageController`, also under `/items`)
+
+Item photos are handled by a separate controller/service pair (`ItemImageController` → `ItemImageService`), backed by object storage rather than the database — the DB only ever stores a storage *key*, never binary content.
+
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| POST | `/items/{itemId}/images` | owner | `files: MultipartFile[]` — 1+ images |
+| GET | `/items/{itemId}/images` | public | All images, by `displayOrder` |
+| GET | `/items/{itemId}/thumbnail` | public | Just the thumbnail, or `null` |
+| DELETE | `/items/images/{imageId}` | owner | Deletes from storage + DB |
+
+**Validation, whole batch before any upload:** max 5 images per item (checked against the *existing* count + incoming batch size), JPEG/PNG/WEBP only, 10MB max per file. Every file in a multi-file request is validated before any of them is actually uploaded, so one bad file in a batch can't leave earlier files persisted while the request as a whole fails.
+
+**Thumbnail bookkeeping:** the first image ever uploaded for an item is auto-flagged as the thumbnail. Deleting the thumbnail promotes the next remaining image (by `displayOrder`) automatically — an item is never left with zero thumbnail while it still has images.
+
+**Storage abstraction:** `ImageStorageService` is a thin interface (`upload`/`delete`/`getImageUrl`) implemented by `MinioImageStorageService`, which talks to whatever S3-compatible endpoint is configured (`minio.*` properties) — local MinIO in dev, Backblaze B2 or Cloudflare R2 elsewhere, no code difference. Keys are `items/{itemId}/{uuid}.{ext}`; URLs handed to clients are 1-hour presigned GETs generated fresh on every read, never cached or stored. See `README-SECURITY.md` for why this is safe to expose publicly (unlike the near-identical pattern used for KYC documents, which is deliberately *not* public — see `README-KYC.md`).
+
+---
+
 ## Core Flows
 
 ### Create Item Flow
@@ -274,6 +306,8 @@ GIST(location) WHERE status = 'ACTIVE'
 * Only trusted users can mutate
 * Only owners can modify items
 * Availability cannot conflict with bookings
+* Activation requires **at least 2 uploaded images** — enforced in `ItemService.activateItem`, checked at activation time only (an item can exist and even sit INACTIVE indefinitely with 0 or 1 image)
+* `ItemStatus.DELETED` exists as an enum value but no endpoint sets it — there is currently no soft-delete for items
 
 ---
 

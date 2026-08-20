@@ -106,6 +106,8 @@ Returns:
 
 **GET** `/users/me`
 
+Returns `id, email, name, mobileNumber, isVerified, role, createdAt, updatedAt, trustStatus`. `trustStatus` was previously missing from this response — the frontend could only find out a user was untrusted by having a mutating call fail with `USR_005`, never proactively. Now the caller's own account page can show current status (and, via `README-KYC.md`'s `KycSection`, the actual submission driving it) without waiting for a rejection.
+
 #### Update Password
 
 **PUT** `/users/password`
@@ -122,11 +124,24 @@ Returns:
 
 ### 🛡️ Admin APIs
 
-#### Update Trust Status
+#### Update Trust Status (manual override)
 
 **PATCH** `/admin/{userId}/trust-status`
 
 * Only ADMIN role allowed
+* Predates KYC and remains independent of it — flips `trustStatus` directly with no evidence required and no relationship to any `KycSubmission` row
+* Self-demotion is blocked: `AdminService.updateUserTrustStatus` explicitly rejects `adminId.equals(userId)`
+
+#### List Users for Review
+
+**GET** `/admin/users?trustStatus=&verified=&page=&size=`
+
+* Only ADMIN role allowed
+* Moderation queue by user record, independent of whether a user has ever submitted KYC
+
+#### KYC review (the other, now-primary path to trust)
+
+`/admin/kyc/**` — list pending submissions, view a submission's documents, approve or reject. Full detail in `README-KYC.md`. The key difference from the manual override above: approving/rejecting a KYC submission flips `trustStatus` *as a side effect* of a review decision backed by actual documents, in the same transaction as the submission's own status change — the two endpoints achieve the same end state (`trustStatus` changes) through entirely different code paths that don't know about each other.
 
 ---
 
@@ -256,8 +271,8 @@ Controller executes
 
 * Email must be unique
 * Password must match during change
-* Only admin can update trust status
-* Users cannot modify their own trust status
+* Trust status changes only through two paths: an admin's manual override, or a KYC review decision (`UserService.setTrustStatus` is the shared seam both eventually call — see `README-KYC.md`)
+* An admin cannot modify their own trust status via the manual override endpoint (this guard is specific to that endpoint; it doesn't apply to KYC review, since a user can't KYC-approve themselves regardless)
 
 ---
 
@@ -355,15 +370,15 @@ Client modifies JWT payload (email/role)
           │ (Auth + User) │
           └──────┬────────┘
                  │
-     ┌───────────┼───────────┐
-     │                       │
-     ▼                       ▼
-┌─────────────┐      ┌─────────────┐
-│ Item Service│      │Booking Serv.│
-│ (Search)    │◄────►│ (Bookings)  │
-└──────┬──────┘      └──────┬──────┘
-       │                    │
-       └──────────┬─────────┘
+     ┌───────────┼───────────┬───────────┐
+     │                       │           │
+     ▼                       ▼           ▼
+┌─────────────┐      ┌─────────────┐  ┌─────────────┐
+│ Item Service│      │Booking Serv.│  │ KYC Service │
+│ (Search)    │◄────►│ (Bookings)  │  │ (Trust flip)│
+└──────┬──────┘      └──────┬──────┘  └──────┬──────┘
+       │                    │                │
+       └──────────┬─────────┴────────────────┘
                   ▼
            PostgreSQL DB
 ```
@@ -374,16 +389,24 @@ Client modifies JWT payload (email/role)
 
     * Handles authentication & identity
     * Issues tokens used by other services
+    * Exposes `setTrustStatus` as the one seam other services use to change trust
 
 * **Item Service**:
 
     * Provides searchable inventory
     * Depends on booking data for availability
+    * Reads trust status via `TrustGateService` before every mutation
 
 * **Booking Service**:
 
     * Manages reservations
     * Ensures no overlaps
+    * Same trust gate as Item Service
+
+* **KYC Service**:
+
+    * The only service that calls `UserService.setTrustStatus` from outside `user` itself
+    * One-directional dependency — `user` has no knowledge `kyc` exists
 
 * All services:
 

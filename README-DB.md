@@ -2,13 +2,14 @@
 
 ## Overview
 
-This database is designed to support a booking platform with users, items, bookings, and authentication/token management. The schema is divided into multiple logical schemas for better organization and separation of concerns.
+This database is designed to support a booking platform with users, items, bookings, identity verification, and authentication/token management. The schema is divided into multiple logical schemas for better organization and separation of concerns.
 
 Schemas used:
 
 * `user_schema`
 * `item_schema`
 * `booking_schema`
+* `kyc_schema`
 * `token_schema`
 
 ---
@@ -61,6 +62,8 @@ Represents items available for booking/renting.
 
 * **Location Index (GIST):** Enables fast geospatial queries
 * **Search Index (GIN):** Supports full-text search on title & description
+* **Partial Location Index (GIST, `WHERE status = 'ACTIVE'`):** Added in V14 — since search only ever looks at ACTIVE items, indexing only those rows keeps the index smaller and the geo scan cheaper than indexing every row regardless of status.
+* **Partial Index (`idx_items_active`, `WHERE status = 'ACTIVE'`):** Same V14 migration, a plain btree on `id` scoped the same way.
 
 ### Trigger: Search Vector
 
@@ -69,6 +72,23 @@ Automatically updates `search_vector` before insert/update using:
 ```
 to_tsvector('english', title + description)
 ```
+
+---
+
+### Table: `item_images`
+
+Uploaded photos for a listing. Binary content lives in object storage (MinIO locally, an S3-compatible bucket like Backblaze B2 or Cloudflare R2 elsewhere) — this table only stores the storage key, never the file itself.
+
+| Column | Type | Description |
+| ------------- | -------------- | -------------------------------- |
+| id | BIGSERIAL (PK) | Unique image ID |
+| item_id | BIGINT, FK → `items(id)` `ON DELETE CASCADE` | Owning item |
+| image_key | VARCHAR(1000) | Object storage key, e.g. `items/42/8d7a5f6c.jpg` |
+| display_order | INTEGER | 1-based ordering within the item |
+| is_thumbnail | BOOLEAN | Exactly one row per item should be `true`; deleting the thumbnail promotes the next by `display_order` |
+| created_at | TIMESTAMP | |
+
+Added in **V15**, alongside the FK — this is the one item-related table that *does* cascade-delete correctly (unlike `bookings`, see below). Max 5 rows per `item_id`, enforced in application code (`ItemImageService`), not by a DB constraint.
 
 ---
 
@@ -102,13 +122,60 @@ This ensures:
 * No double booking
 * Strong consistency at DB level
 
+### No Foreign Keys on `item_id` / `renter_id`
+
+Both are plain `BIGINT` columns — there is **no** FK to `items(id)` or `users(id)`. This means:
+
+* Deleting an item or a user does **not** cascade-delete their bookings; they become orphaned rows referencing an id that no longer exists.
+* Any cleanup script (test-data resets, account deletion) must delete `bookings` rows explicitly, and must do it *before* deleting the referenced items/users — this is the opposite of `item_images` and `kyc_submissions`, which do cascade automatically. Worth double-checking which behavior you're relying on before writing a DELETE.
+
 ---
 
-## 4. Token Schema (`token_schema`)
+## 4. KYC Schema (`kyc_schema`)
+
+### Table: `kyc_submissions`
+
+One row per user — identity-verification submissions reviewed by an admin, whose approval/rejection drives `users.trust_status`. Added in **V16**.
+
+| Column | Type | Description |
+| ---------------------- | ---------------- | ------------------------------------------------------- |
+| id | BIGSERIAL (PK) | Submission ID |
+| user_id | BIGINT, UNIQUE, FK → `users(id)` `ON DELETE CASCADE` | One row per user — resubmission overwrites in place |
+| legal_name | VARCHAR(255) | |
+| date_of_birth | DATE | |
+| address_line1 | VARCHAR(255) | |
+| address_line2 | VARCHAR(255), nullable | |
+| city | VARCHAR(255) | |
+| state | VARCHAR(255) | |
+| postal_code | VARCHAR(20) | |
+| country | VARCHAR(2) | ISO-3166 2-letter code, not validated against a real code list beyond length |
+| id_document_type | VARCHAR(50) | `PASSPORT` / `DRIVERS_LICENSE` / `NATIONAL_ID` / `OTHER` |
+| id_document_image_key | VARCHAR(1000) | Object storage key, e.g. `kyc/5/idDocument/uuid.png` |
+| selfie_image_key | VARCHAR(1000) | Object storage key, e.g. `kyc/5/selfie/uuid.png` |
+| status | VARCHAR(20) | `PENDING` / `APPROVED` / `REJECTED`, default `PENDING` |
+| rejection_reason | VARCHAR(1000), nullable | Required input on reject, cleared on approve/resubmit |
+| reviewed_by | BIGINT, nullable | Reviewing admin's user id — not FK-enforced |
+| reviewed_at | TIMESTAMP, nullable | |
+| created_at | TIMESTAMP | First submission time — unlike `updated_at`, unaffected by resubmission |
+| updated_at | TIMESTAMP | |
+
+**Index:** `idx_kyc_submissions_status` on `status`, since the admin review queue is always filtered by it.
+
+### Why `user_id` is `UNIQUE`
+
+This is what makes "one row per user, upsert on resubmit" possible at the DB level — the application can safely do `findByUserId` expecting at most one result, and a resubmission is an `UPDATE` in disguise (same row, new values) rather than an `INSERT`.
+
+### Storage note
+
+Documents (`id_document_image_key`, `selfie_image_key`) live in the **same bucket** as item photos, under a `kyc/{userId}/{kind}/{uuid}.{ext}` prefix — not a separate bucket. See `README-KYC.md` and `README-SECURITY.md` for why that's a deliberate choice rather than an oversight: the actual access-control boundary is application code (presigned URLs are never handed out from a public route), not bucket-level policy, so a second bucket would add provisioning overhead without a real security benefit.
+
+---
+
+## 5. Token Schema (`token_schema`)
 
 Handles authentication-related tokens.
 
-### 4.1 Refresh Tokens
+### 5.1 Refresh Tokens
 
 #### Table: `refresh_tokens`
 
@@ -130,7 +197,7 @@ Handles authentication-related tokens.
 
 ---
 
-### 4.2 Email Verification Tokens
+### 5.2 Email Verification Tokens
 
 #### Table: `email_verification_tokens`
 
@@ -145,7 +212,7 @@ Handles authentication-related tokens.
 
 ---
 
-### 4.3 Password Reset Tokens
+### 5.3 Password Reset Tokens
 
 #### Table: `password_reset_tokens`
 
@@ -161,19 +228,20 @@ Handles authentication-related tokens.
 
 ## Relationships
 
-* `users` → `items` (owner_id)
-* `users` → `bookings` (renter_id)
-* `users` → `refresh_tokens`, `email_verification_tokens`, `password_reset_tokens`
+* `users` → `items` (owner_id) — **not** FK-enforced
+* `users` → `bookings` (renter_id) — **not** FK-enforced
+* `items` → `item_images` (item_id) — **FK-enforced**, `ON DELETE CASCADE`
+* `items` → `bookings` (item_id) — **not** FK-enforced
+* `users` → `kyc_submissions` (user_id, unique) — **FK-enforced**, `ON DELETE CASCADE`
+* `users` → `refresh_tokens`, `email_verification_tokens`, `password_reset_tokens` — **FK-enforced**, `ON DELETE CASCADE`
 
-All token tables use:
+Meaning, concretely:
 
-```
-ON DELETE CASCADE
-```
+* Deleting a user automatically removes all their tokens and their `kyc_submissions` row.
+* Deleting a user or an item does **not** automatically remove their `bookings` — those must be deleted explicitly, and first, in any manual cleanup.
+* Deleting an item automatically removes its `item_images`.
 
-Meaning:
-
-* Deleting a user removes all related tokens
+This FK-enforcement is inconsistent across the schema by history, not by design — `bookings` predates the convention `item_images`/`kyc_submissions` later adopted. Worth keeping in mind before assuming a delete "just cascades."
 
 ---
 
@@ -280,7 +348,23 @@ This section gives a quick, practical view of what each table is responsible for
 
 ---
 
-### 3. `booking_schema.bookings`
+### 3. `item_schema.item_images`
+
+**Purpose:** Photos for a listing, key-only (binary lives in object storage)
+
+* Up to 5 per item, enforced in app code
+* Exactly one flagged as thumbnail
+* FK to `items`, cascades on item delete
+
+👉 Used in:
+
+* Item activation (needs ≥2 images)
+* Search result thumbnails
+* Listing detail pages
+
+---
+
+### 4. `booking_schema.bookings`
 
 **Purpose:** Handles reservations between users and items
 
@@ -299,7 +383,26 @@ This section gives a quick, practical view of what each table is responsible for
 
 ---
 
-### 4. `token_schema.refresh_tokens`
+### 5. `kyc_schema.kyc_submissions`
+
+**Purpose:** Identity-verification submissions reviewed by an admin
+
+* One row per user (`user_id` unique), overwritten on resubmission
+* Drives `users.trust_status` on approve/reject
+* FK to `users`, cascades on user delete
+
+🔥 Key Feature:
+
+* Approve/reject and the trust-status flip happen in one transaction — never out of sync
+
+👉 Used in:
+
+* Trust gating (the intended path to `TRUSTED`)
+* Admin review queue
+
+---
+
+### 6. `token_schema.refresh_tokens`
 
 **Purpose:** Session management (long-lived auth)
 
@@ -313,7 +416,7 @@ This section gives a quick, practical view of what each table is responsible for
 
 ---
 
-### 5. `token_schema.email_verification_tokens`
+### 7. `token_schema.email_verification_tokens`
 
 **Purpose:** Email verification flow
 
@@ -326,7 +429,7 @@ This section gives a quick, practical view of what each table is responsible for
 
 ---
 
-### 6. `token_schema.password_reset_tokens`
+### 8. `token_schema.password_reset_tokens`
 
 **Purpose:** Password reset flow
 
@@ -377,6 +480,15 @@ This section gives a quick, practical view of what each table is responsible for
     * availability
 3. User books item → insert into `bookings`
 4. DB prevents overlaps automatically
+
+---
+
+### 🪪 KYC / Trust Flow
+
+1. User submits identity details + documents → row in `kyc_submissions` (PENDING), documents in object storage
+2. Admin reviews → approves or rejects
+3. Same transaction: `kyc_submissions.status` updated **and** `users.trust_status` flipped (`TRUSTED` or `UNTRUSTED`)
+4. If rejected, user resubmits → same row overwritten, back to PENDING (step 2 repeats)
 
 ---
 
