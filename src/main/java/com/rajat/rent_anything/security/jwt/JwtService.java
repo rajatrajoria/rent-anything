@@ -104,7 +104,7 @@ public class JwtService {
      *
      * Configuration Values:
      * - jwt.secret.key
-     * - jwt.access.token.expiration
+     * - jwt.access-token.expiration
      *
      * Startup Validation:
      * Application startup fails if no secret key is provided because
@@ -118,7 +118,7 @@ public class JwtService {
      * @param expiration token expiration duration in milliseconds
      */
     public JwtService(@Value("${jwt.secret.key}") String secret,
-                      @Value("${jwt.access.token.expiration:3600000}") long expiration) {
+                      @Value("${jwt.access-token.expiration}") long expiration) {
 
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException(

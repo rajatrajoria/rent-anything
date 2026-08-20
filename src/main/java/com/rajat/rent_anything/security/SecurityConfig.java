@@ -1,6 +1,7 @@
 package com.rajat.rent_anything.security;
 
 import com.rajat.rent_anything.security.jwt.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,6 +13,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 /**
  * Central Spring Security configuration for the application.
@@ -79,6 +85,42 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     /**
+     * Origins allowed to make cross-origin requests to this API.
+     *
+     * Configurable via `app.cors.allowed-origins` (comma-separated) so
+     * deployed frontends aren't hardcoded to localhost.
+     */
+    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    private List<String> allowedOrigins;
+
+    /**
+     * CORS configuration for the API.
+     *
+     * <h2>Why needed?</h2>
+     * <p>
+     * The frontend (Next.js, e.g. http://localhost:3000) and this API
+     * (e.g. http://localhost:8080) run on different origins in local
+     * development. Without an explicit CORS policy, browsers block
+     * every cross-origin fetch from the frontend.
+     * <p>
+     * The API authenticates via a bearer token in the Authorization
+     * header (not cookies), so credentials are not required here.
+     *
+     * @return CORS configuration source used by the security filter chain
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    /**
      * Defines the application's security filter chain.
      *
      * <h2>What is a Security Filter Chain?</h2>
@@ -117,6 +159,14 @@ public class SecurityConfig {
         http
 
                 /**
+                 * Enables CORS using the corsConfigurationSource bean above.
+                 *
+                 * Must be enabled explicitly — Spring Security ignores
+                 * CORS by default even if a CorsConfigurationSource bean
+                 * exists elsewhere in the context.
+                 */.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                /**
                  * CSRF protection disabled.
                  *
                  * Why?
@@ -127,7 +177,7 @@ public class SecurityConfig {
                  * and does not rely on browser-managed sessions,
                  * CSRF protection is generally unnecessary.
                  *
-                 * If cookie-based authentication is introduced in future,
+                 * If cookie-based authentication is introduced in the future,
                  * this decision should be revisited.
                  */.csrf(csrf -> csrf.disable())
 
@@ -198,7 +248,7 @@ public class SecurityConfig {
                  *
                  * Our application uses JWT tokens instead.
                  *
-                 * Therefore JWT authentication must happen first
+                 * Therefore, JWT authentication must happen first
                  * so the SecurityContext is already populated
                  * before Spring Security performs authorization checks.
                  *
