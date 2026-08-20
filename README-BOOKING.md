@@ -73,6 +73,37 @@ The Booking Service is responsible for managing the lifecycle of bookings in the
 
 ---
 
+### 4. My Bookings (as renter)
+
+**GET** `/api/bookings/mine`
+
+Lists bookings the caller made as a renter, most recently created first. Each row includes the item's title and owner id (joined in from `item_schema.items`, not stored on the booking itself).
+
+#### Response
+
+```
+{
+  "success": true,
+  "data": [ BookingResponseDto, ... ]
+}
+```
+
+Powers the frontend dashboard's "My bookings" tab.
+
+---
+
+### 5. Received Bookings (as owner)
+
+**GET** `/api/bookings/received`
+
+Lists bookings made against items the caller owns, most recently created first. Powers the "Booking requests" tab — this is where an owner confirms or cancels incoming requests.
+
+#### Response
+
+Same shape as `/mine`.
+
+---
+
 ## Service Layer
 
 ### createBooking()
@@ -145,6 +176,22 @@ Used for early conflict detection.
 2. findByStatusAndEndDateBefore
 
 * Used to mark bookings as completed
+
+---
+
+### History Queries
+
+1. `findByRenterIdOrderByCreatedAtDesc(renterId)`
+
+* Backs `GET /api/bookings/mine`
+* Plain derived query — `renter_id` has no FK, just an indexed-by-convention `BIGINT`
+
+2. `findByItemOwnerId(ownerId)`
+
+* Backs `GET /api/bookings/received`
+* A real join, not a cascade: `bookings.item_id` has no FK to `items.id`, so this is a native `@Query` doing `WHERE b.itemId IN (SELECT i.id FROM ItemEntity i WHERE i.ownerId = :ownerId)`
+
+`BookingService.toResponseDtos()` batches an item lookup (`itemRepository.findAllById(...)`) across whatever set of bookings either query returns, to avoid an N+1 when attaching each booking's item title.
 
 ---
 

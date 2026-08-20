@@ -59,6 +59,11 @@ app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
 
 minio:
+  # Works against any S3-compatible provider, not just self-hosted MinIO -
+  # e.g. Cloudflare R2: endpoint = https://<account_id>.r2.cloudflarestorage.com,
+  # region = auto, access-key/secret-key = an R2 API token's key pair.
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  region: ${MINIO_REGION:us-east-1}
   access-key: ${MINIO_ACCESS_KEY:minioadmin}
   secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-name: ${MINIO_BUCKET_NAME:rent-anything}

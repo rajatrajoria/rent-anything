@@ -35,7 +35,7 @@ class MinioImageStorageServiceTest {
 
     @BeforeEach
     void setUp() {
-        storageService = new MinioImageStorageService(minioClient);
+        storageService = new MinioImageStorageService(minioClient, "rent-anything");
     }
 
     @Test

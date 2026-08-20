@@ -7,6 +7,7 @@ import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.http.Method;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,8 +18,6 @@ import java.util.UUID;
 @Slf4j
 public class MinioKycDocumentStorageService implements KycDocumentStorageService {
 
-    private static final String BUCKET_NAME = "rent-anything";
-
     private static final Map<String, String> EXTENSIONS_BY_CONTENT_TYPE = Map.of(
             "image/jpeg", ".jpg",
             "image/png", ".png",
@@ -26,9 +25,11 @@ public class MinioKycDocumentStorageService implements KycDocumentStorageService
     );
 
     private final MinioClient minioClient;
+    private final String bucketName;
 
-    public MinioKycDocumentStorageService(MinioClient minioClient) {
+    public MinioKycDocumentStorageService(MinioClient minioClient, @Value("${minio.bucket-name}") String bucketName) {
         this.minioClient = minioClient;
+        this.bucketName = bucketName;
     }
 
     @Override
@@ -40,7 +41,7 @@ public class MinioKycDocumentStorageService implements KycDocumentStorageService
 
             minioClient.putObject(
                     PutObjectArgs.builder()
-                            .bucket(BUCKET_NAME)
+                            .bucket(bucketName)
                             .object(documentKey)
                             .stream(file.getInputStream(), file.getSize(), -1)
                             .contentType(file.getContentType())
@@ -60,7 +61,7 @@ public class MinioKycDocumentStorageService implements KycDocumentStorageService
     @Override
     public void delete(String documentKey) {
         try {
-            minioClient.removeObject(RemoveObjectArgs.builder().bucket(BUCKET_NAME).object(documentKey).build());
+            minioClient.removeObject(RemoveObjectArgs.builder().bucket(bucketName).object(documentKey).build());
             log.info("Deleted KYC document {}", documentKey);
         } catch (Exception ex) {
             log.error("Failed to delete KYC document {}", documentKey, ex);
@@ -74,7 +75,7 @@ public class MinioKycDocumentStorageService implements KycDocumentStorageService
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
-                            .bucket(BUCKET_NAME)
+                            .bucket(bucketName)
                             .object(documentKey)
                             .expiry(60 * 60)
                             .build()
